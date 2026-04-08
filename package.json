@@ -1,0 +1,26 @@
+{
+  "name": "vorzelajs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate:routes": "node --import tsx scripts/generate-routes.ts",
+    "dev": "npm run generate:routes && node --import tsx server.ts",
+    "build": "npm run generate:routes && npm run build:client && npm run build:server",
+    "build:client": "vite build",
+    "build:server": "vite build --ssr src/entry-server.tsx --outDir dist/server",
+    "serve": "NODE_ENV=production node --import tsx server.ts",
+    "check": "npm run generate:routes && tsc --noEmit"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.19.4",
+    "hono": "^4.10.1",
+    "solid-js": "^1.9.11"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.2",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.2",
+    "vite": "^8.0.5",
+    "vite-plugin-solid": "^2.11.12"
+  }
+}
