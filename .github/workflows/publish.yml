@@ -1,0 +1,42 @@
+name: Publish to npm
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      # ── vorzelajs ────────────────────────────────────────────────────────
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Publish vorzelajs
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # ── create-vorzelajs ─────────────────────────────────────────────────
+      - name: Install create-vorzelajs dependencies
+        run: npm ci
+        working-directory: create-vorzelajs
+
+      - name: Build create-vorzelajs
+        run: npm run build
+        working-directory: create-vorzelajs
+
+      - name: Publish create-vorzelajs
+        run: npm publish
+        working-directory: create-vorzelajs
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
