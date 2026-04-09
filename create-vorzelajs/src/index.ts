@@ -25,7 +25,7 @@ async function copyDir(src: string, dest: string) {
 
   for (const entry of await fs.readdir(src, { withFileTypes: true })) {
     const srcPath = path.join(src, entry.name)
-    const destPath = path.join(dest, entry.name)
+    const destPath = path.join(dest, entry.name === 'gitignore' ? '.gitignore' : entry.name)
 
     if (entry.isDirectory()) {
       await copyDir(srcPath, destPath)

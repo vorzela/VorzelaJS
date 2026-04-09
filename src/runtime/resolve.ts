@@ -26,6 +26,9 @@ import type {
   SerializedMatch,
 } from './types'
 
+const generatedRouteHydrationManifest = routeHydrationManifest as Record<string, GeneratedRouteHydrationRecord>
+const generatedRouteManifest = routeManifest as readonly GeneratedRouteRecord[]
+
 function createResponseStub(): RouteResponseStub {
   return {
     headers: new Headers(),
@@ -68,7 +71,7 @@ function createRawSearch(searchParams: URLSearchParams): RouteSearch {
 }
 
 function selectBestMatch(pathname: string) {
-  return routeManifest
+  return generatedRouteManifest
     .filter((entry) => entry.id !== '__root__' && entry.matchPath !== null)
     .map((entry) => ({
       entry,
@@ -158,8 +161,7 @@ function resolveMatchHydration(
   entry: GeneratedRouteRecord,
   route: AnyRouteDefinition,
 ): ResolvedRouteHydration {
-  const hydrationManifest = routeHydrationManifest as Record<string, GeneratedRouteHydrationRecord>
-  const detected = hydrationManifest[entry.id]?.detected ?? 'static'
+  const detected = generatedRouteHydrationManifest[entry.id]?.detected ?? 'static'
   const configured = route.options.hydration ?? 'auto'
 
   return configured === 'auto' ? detected : configured
@@ -191,7 +193,7 @@ function validateRouteSearch(route: AnyRouteDefinition, rawSearch: RouteSearch) 
 
 async function materializeMatches(matches: SerializedMatch[]): Promise<ResolvedMatch[]> {
   const routesById = new Map<string, GeneratedRouteRecord>(
-    routeManifest.map((entry) => [entry.id, entry]),
+    generatedRouteManifest.map((entry) => [entry.id, entry]),
   )
 
   return Promise.all(matches.map(async (match) => {
@@ -224,7 +226,7 @@ export async function resolveRoute(
   const bestMatch = selectBestMatch(normalized)
 
   if (!bestMatch) {
-    const rootEntry = routeManifest.find((entry) => entry.id === '__root__')
+    const rootEntry = generatedRouteManifest.find((entry) => entry.id === '__root__')
 
     if (!rootEntry) {
       throw new Error(`No route matched ${normalized}`)
@@ -299,7 +301,7 @@ export async function resolveRoute(
     }
   }
 
-  const branchEntries = buildRouteBranch(routeManifest, bestMatch.entry.id)
+  const branchEntries = buildRouteBranch(generatedRouteManifest, bestMatch.entry.id)
   const accumulatedHeads: HeadObject[] = []
   const matches: ResolvedMatch[] = []
   const loadedEntries: Array<{ entry: GeneratedRouteRecord; route: AnyRouteDefinition }> = []

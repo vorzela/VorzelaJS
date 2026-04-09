@@ -7,7 +7,10 @@ import { getRequestListener } from '@hono/node-server'
 import type { ViteDevServer } from 'vite'
 
 import { createVorzelaApp } from '../server'
+import type { CreateAppOptions } from '../server'
 import { resolveVorzelaConfig } from '../vite'
+
+type ServerEntryModule = Awaited<ReturnType<CreateAppOptions['loadEntry']>>
 
 async function findAvailablePort(startPort: number) {
   return new Promise<number>((resolve) => {
@@ -87,8 +90,8 @@ export async function runDev() {
     js: ['/src/entry-client.tsx'],
   }
 
-  const loadEntry = async () => {
-    return vite.ssrLoadModule('virtual:vorzela/entry-server')
+  const loadEntry: CreateAppOptions['loadEntry'] = async () => {
+    return vite.ssrLoadModule('virtual:vorzela/entry-server') as Promise<ServerEntryModule>
   }
 
   const app = createVorzelaApp({

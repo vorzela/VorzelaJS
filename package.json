@@ -9,7 +9,7 @@
     "url": "git+https://github.com/vorzela/VorzelaJS.git"
   },
   "bin": {
-    "vorzelajs": "./bin/vorzelajs.mjs"
+    "vorzelajs": "bin/vorzelajs.mjs"
   },
   "exports": {
     ".": {
@@ -31,12 +31,14 @@
     "templates"
   ],
   "scripts": {
+    "clean:dist": "node --input-type=module -e \"import fs from 'node:fs'; fs.rmSync('dist', { recursive: true, force: true })\"",
     "generate:routes": "node --import tsx scripts/generate-routes.ts",
     "dev": "npm run generate:routes && node --import tsx server.ts",
-    "build:framework": "tsc -p tsconfig.build.json",
+    "build:framework": "npm run clean:dist && tsc -p tsconfig.build.json",
     "build": "npm run generate:routes && npm run build:client && npm run build:server",
     "build:client": "vite build",
     "build:server": "vite build --ssr src/entry-server.tsx --outDir dist/server",
+    "prepack": "npm run build:framework",
     "serve": "NODE_ENV=production node --import tsx server.ts",
     "check": "npm run generate:routes && tsc --noEmit",
     "lint": "eslint .",
