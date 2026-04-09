@@ -9,15 +9,9 @@ import prompts from 'prompts'
 const __filename = url.fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-// Templates ship inside the vorzelajs package
+// Templates are bundled inside create-vorzelajs at package root
 function resolveTemplatesDir() {
-  try {
-    const vorzelaRoot = path.dirname(require.resolve('vorzelajs/package.json'))
-    return path.join(vorzelaRoot, 'templates')
-  } catch {
-    // Fallback: assume templates are sibling to create-vorzelajs
-    return path.resolve(__dirname, '..', '..', 'templates')
-  }
+  return path.resolve(__dirname, '..', 'templates')
 }
 
 async function copyDir(src: string, dest: string) {

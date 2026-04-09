@@ -1,6 +1,6 @@
 {
   "name": "create-vorzelajs",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "type": "module",
   "description": "Create a new VorzelaJs project",
   "license": "MIT",
@@ -13,10 +13,12 @@
     "create-vorzelajs": "dist/index.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "templates"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json"
+    "build": "tsc -p tsconfig.json",
+    "prepack": "node --input-type=module -e \"import fs from 'node:fs'; fs.cpSync('../templates', 'templates', { recursive: true })\""
   },
   "dependencies": {
     "prompts": "^2.4.2"
