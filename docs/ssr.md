@@ -21,11 +21,16 @@ Instead, the server returns a full HTML document from `src/document.tsx`.
 That document contains:
 
 - route head metadata
+- canonical links and JSON-LD scripts
 - `HydrationScript`
 - linked CSS assets
 - rendered route HTML inside `#app`
 - a JSON bootstrap payload in `#__VORZELA_DATA__`
 - module scripts for the client bundle
+
+In production, the hydration script, bootstrap payload script, module scripts, and JSON-LD scripts all receive the per-request CSP nonce.
+
+The bootstrap payload is also escaped for `&`, `<`, `>`, `\u2028`, and `\u2029` before injection into the document.
 
 ## Streaming SSR
 
@@ -37,35 +42,33 @@ This means VorzelaJs supports streamed document delivery.
 
 ## Hydration Model
 
-The current hydration model is full-app hydration.
+The current hydration model is route-branch islands with delegated navigation.
 
-`src/entry-client.tsx` does this:
+`src/entry-client.tsx` now does this:
 
 ```tsx
 const router = createRouter(readBootstrapPayload())
 await router.init()
-
-hydrate(() => <RouterProvider router={router} />, document.getElementById('app')!)
 ```
 
-That means the application hydrates the routed app tree under `#app` as one Solid application.
+During `init()`, the router:
 
-## Partial Hydration Research Result
+- commits the bootstrap route state
+- installs same-origin delegated navigation and `popstate` handling
+- swaps server-rendered HTML into `#app` on navigation
+- hydrates only the matched route branches marked as `client`
 
-Partial hydration is not implemented today.
+SSR emits island roots as `data-vrz-island-root` markers.
 
-Reasons from the codebase:
+Route hydration is determined during route generation by scanning each route module and its local imports for interactive client primitives such as event handlers, navigation hooks, or Solid client hooks.
 
-- there is a single `hydrate()` call for the entire app root
-- there is no island boundary system
-- there is no component-level hydration scheduler
-- there is no resumability or progressive client activation layer
+Current granularity is route-branch level, not arbitrary nested component extraction.
 
 So the correct status is:
 
 - streamed SSR: yes
-- full hydration: yes
-- partial hydration / islands: no
+- route-branch island hydration: yes
+- arbitrary nested component islands: no
 
 ## Bootstrap Payload
 
@@ -80,25 +83,57 @@ The client reads that payload through `readBootstrapPayload()`.
 The payload currently includes:
 
 - merged head data
-- serialized matches
+- serialized matches, including hydration metadata per match
 - pathname
 - optional not-found state
 - optional route error state
 
-## Payload Route Mode
+## Payload Navigation
 
-Routes with `mode: 'server-payload'` use a hybrid transition path.
+Client-side navigations now use the payload endpoint for same-origin route transitions.
+
+Payload requests are sent with `X-Vorzela-Navigation: payload`. In production, the server rejects payload requests that do not present a same-host `Origin` or `Referer`.
 
 Flow:
 
-1. the client resolves the route as usual
-2. if the leaf route mode is `server-payload`, the client requests `/__vorzela/payload?path=...`
-3. the server renders the leaf route HTML with `renderPayload()`
-4. the client injects that payload HTML into the routed outlet area
+1. the client requests `/__vorzela/payload?path=...`
+2. the server resolves the route and renders the full routed HTML with island markers
+3. the client swaps that HTML into `#app`
+4. the client syncs head metadata and hydrates only the matched `client` branches
 
-This is not the same as partial hydration.
+This is partial hydration at route-branch granularity, not leaf-only HTML injection.
 
-It is a server-refreshed leaf rendering mode inside an already hydrated shell.
+## Route Response Headers
+
+`beforeLoad` and `loader` receive a mutable `response` stub.
+
+Today the runtime forwards `response.headers` through both streamed document responses and payload responses. That is how route-level `Set-Cookie` headers work during initial SSR and later client navigations.
+
+## Server-Only Helpers
+
+When a route needs Node-only code such as database drivers, `node:fs`, or `node:crypto`,
+put that code in a colocated `.server` helper and call it from `loader`, `beforeLoad`,
+or `validateSearch`.
+
+Example:
+
+```tsx
+import { createFileRoute } from '~/router'
+
+import { readArticle } from './article.server'
+
+export const Route = createFileRoute('/articles/$articleId')({
+	loader: ({ params }) => readArticle(params.articleId),
+	component: ArticlePage,
+})
+```
+
+Build behavior:
+
+- `.server` files under `src/routes` are ignored by route generation
+- the client build strips `loader`, `beforeLoad`, and `validateSearch` from route modules
+- matching `.server` imports used only by those server-only route hooks are removed from the client bundle
+- using a `.server` import from route component code or other client-visible modules fails the build
 
 ## Status Codes
 
@@ -139,7 +174,7 @@ Current SSR capability matrix:
 
 - full HTML document SSR: yes
 - streamed initial response: yes
-- client hydration: yes
-- server payload leaf rendering: yes
-- partial hydration: no
+- payload-driven route navigation: yes
+- route-branch island hydration: yes
+- arbitrary nested component islands: no
 - route-scoped error rendering: yes

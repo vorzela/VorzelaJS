@@ -1,68 +1,188 @@
 # VorzelaJs
 
-VorzelaJs is a custom SolidJS framework runtime built on top of Hono and Vite.
+Batteries-included SolidJS framework with file-based routing, streamed SSR, server-only boundaries, and zero config.
 
-The current implementation provides:
-
-- streamed SSR for the initial document
-- client-side navigation after hydration
-- file-based route generation into `src/routeTree.gen.ts`
-- underscore-only pathless routes and route groups
-- route-level code splitting through Vite dynamic imports
-- route helpers such as `validateSearch`, `beforeLoad`, `afterLoad`, `redirect`, `notFound`, `notFoundComponent`, and `errorComponent`
-- client-side query-string write helpers for filter-style deeplinks
-- automatic route-scoped error rendering that keeps parent layouts mounted
-- a hybrid `server-payload` route mode for client transitions that fetch fresh server-rendered HTML
-- automatic port fallback when the requested app port is already in use
-
-This repository is still framework-core work, not a finished general-purpose framework release.
-
-## Quick Start
+## Create a New App
 
 ```bash
+npm create vorzelajs@latest my-app
+cd my-app
 npm install
 npm run dev
 ```
 
-The app defaults to `3080`, but if that port is already occupied VorzelaJs will automatically try `3081`, `3082`, and so on.
+You'll be prompted for:
+
+- **Template** — `modern` (multi-page with nav) or `bare` (single landing page)
+- **Styling** — `tailwindcss`, `css-modules`, or `css`
+
+## Manual Setup
+
+```bash
+mkdir my-app && cd my-app
+npm init -y
+npm install vorzelajs solid-js
+```
+
+Add scripts to `package.json`:
+
+```json
+{
+  "scripts": {
+    "dev": "vorzelajs dev",
+    "build": "vorzelajs build",
+    "serve": "NODE_ENV=production vorzelajs serve"
+  }
+}
+```
+
+Create your first route:
+
+```tsx
+// src/routes/__root.tsx
+import { createRootRoute, Outlet } from 'vorzelajs'
+
+export const Route = createRootRoute({
+  component: () => <Outlet />,
+})
+```
+
+```tsx
+// src/routes/index.tsx
+import { createFileRoute } from 'vorzelajs'
+
+export const Route = createFileRoute('/')({
+  component: () => <h1>Hello VorzelaJs</h1>,
+  head: () => ({ title: 'Home' }),
+})
+```
+
+Add a stylesheet at `src/styles.css` and run `npm run dev`.
+
+## Project Structure
+
+```
+src/
+├── routes/         # File-based routes (pages and layouts)
+├── components/     # Reusable UI components
+├── lib/            # Helpers, API clients, utilities
+├── styles.css      # Global styles
+```
+
+You own `src/`. The framework handles Vite config, server, SSR entry, and document shell.
+
+## Features
+
+- **File-based routing** — Drop a file in `src/routes/` and it becomes a route with automatic code splitting
+- **Streamed SSR** — Server-rendered HTML streams to the browser with selective hydration per route branch
+- **Server-only boundaries** — `.server.ts` files and route `loader`/`beforeLoad` are stripped from the client bundle
+- **Payload navigation** — Client navigations fetch JSON payloads instead of full page reloads
+- **Head management** — Per-route `<title>`, `<meta>`, `<link>`, canonical URLs, and JSON-LD
+- **Cookie & session helpers** — `createCookie()`, `createCookieSessionStorage()` via `vorzelajs/server`
+- **Analytics** — First-party analytics with `defineAnalytics()` and `createAnalyticsClient()`
+- **SEO** — Robots.txt, sitemap.xml, and structured data built in
+- **Security headers** — CSP with nonces, HSTS, X-Frame-Options, and more out of the box
+- **Zero config** — No `vite.config.ts` or `server.ts` to maintain
+
+## Routes
+
+### Basic Route
+
+```tsx
+import { createFileRoute } from 'vorzelajs'
+
+export const Route = createFileRoute('/about')({
+  component: AboutPage,
+  head: () => ({
+    title: 'About',
+    meta: [{ name: 'description', content: 'About us' }],
+  }),
+})
+
+function AboutPage() {
+  return <h1>About</h1>
+}
+```
+
+### Route with Server Loader
+
+```tsx
+import { createFileRoute } from 'vorzelajs'
+import { db } from '~/lib/db.server'
+
+export const Route = createFileRoute('/posts')({
+  loader: async () => {
+    const posts = await db.posts.findMany()
+    return { posts }
+  },
+  component: PostsPage,
+})
+
+function PostsPage() {
+  const { posts } = Route.useLoaderData()
+  return <ul>{posts.map((p) => <li>{p.title}</li>)}</ul>
+}
+```
+
+### Dynamic Routes
+
+```
+src/routes/posts/$postId.tsx  → /posts/:postId
+src/routes/users/$userId.tsx  → /users/:userId
+```
+
+Access params with `Route.useParams()`.
+
+### Pathless Layouts
+
+Prefix with `_` to create layout wrappers without adding a URL segment:
+
+```
+src/routes/_auth.tsx          → layout (no URL segment)
+src/routes/_auth/login.tsx    → /login
+src/routes/_auth/register.tsx → /register
+```
+
+## Server Exports
+
+Import server helpers from `vorzelajs/server`:
+
+```tsx
+import { createCookie, defineAnalytics, defineRobotsConfig } from 'vorzelajs/server'
+```
+
+## Styling
+
+The framework detects your styling choice automatically:
+
+- **Tailwind CSS** — Install `tailwindcss` + `@tailwindcss/vite` and add `@import "tailwindcss"` to `styles.css`
+- **CSS Modules** — Create `*.module.css` files (Vite handles them natively)
+- **Plain CSS** — Write global CSS in `styles.css`
+
+Bring your own fonts. The default font stack is system fonts.
 
 ## Commands
 
-```bash
-npm run dev
-npm run check
-npm run build
-npm run serve
+| Command | Description |
+|---------|-------------|
+| `vorzelajs dev` | Start dev server with HMR |
+| `vorzelajs build` | Build client and server for production |
+| `vorzelajs serve` | Serve the production build |
+
+## Vite Escape Hatch
+
+For advanced use cases, import the plugin directly:
+
+```ts
+// vite.config.ts
+import { vorzelaPlugin } from 'vorzelajs/vite'
+import { defineConfig } from 'vite'
+
+export default defineConfig({
+  plugins: [vorzelaPlugin()],
+})
 ```
 
-## Documentation
+## License
 
-- `docs/routing.md` - file-based routing, route conventions, route lifecycle, route modes
-- `docs/ssr.md` - server rendering, streaming, hydration model, payload route behavior
-- `docs/server-runtime.md` - Hono/Vite runtime, production asset serving, security headers, port fallback
-- `docs/router-api.md` - API reference and examples for every helper exported from `~/router`
-- `docs/feature-support.md` - researched support matrix for `_` files, route groups, partial hydration, and error handling
-
-## Current Status
-
-Today VorzelaJs supports:
-
-- root and file routes
-- underscore-only pathless route files and grouping folders
-- dynamic params such as `$postId`
-- catch-all routes through `$.tsx`
-- route `head`, `loader`, `validateSearch`, `beforeLoad`, `afterLoad`, `mode`, `notFoundComponent`, and `errorComponent`
-- query-string preservation across SSR and client navigation
-- merge-aware search updates and object-based search navigation
-- redirects and not-found signals
-- automatic route-scoped error rendering for loader and component failures
-- streamed SSR of the initial document
-- full-app hydration on the client
-
-Today VorzelaJs does not support:
-
-- parentheses-style route groups
-- partial hydration or islands
-- structured status helper APIs for arbitrary `400` / `500` classes
-
-Read `docs/feature-support.md` for the research-backed details.
+MIT

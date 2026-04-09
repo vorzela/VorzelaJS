@@ -11,7 +11,12 @@ This guide documents the current Hono and Vite runtime used by VorzelaJs.
 - loading the server entry module
 - serving built client assets in production
 - rendering the HTML document on `GET *`
+- exposing the optional analytics endpoint on `OPTIONS|POST /__vorzela/analytics`
+- exposing `GET /robots.txt`
+- exposing `GET /sitemap.xml`
 - exposing the route payload endpoint on `GET /__vorzela/payload`
+- generating a per-request CSP nonce for document scripts
+- forwarding route response headers from SSR and payload rendering
 - applying security headers
 - moving to the next available port if the requested port is busy
 
@@ -24,7 +29,8 @@ That means:
 - the Hono app handles routing and document responses
 - Vite provides module transforms and dev asset serving
 - HMR is enabled through a websocket port
-- route files are watched and `src/routeTree.gen.ts` is regenerated while the dev server keeps running
+- route and source files that affect hydration analysis are watched while the dev server keeps running
+- `src/routeTree.gen.ts` and `src/routeHydration.gen.ts` are regenerated without restarting the server
 
 The HMR port is also probed for availability before startup.
 
@@ -32,11 +38,12 @@ The HMR port is also probed for availability before startup.
 
 In production, VorzelaJs reads `dist/client/.vite/manifest.json` to discover the built client entry and CSS files.
 
+The runtime collects the entry JavaScript plus the built CSS asset set so the document can link styles up front.
+
 It then serves:
 
 - `/assets/*` from `dist/client`
 - `/favicon.svg` from `dist/client`
-- `/robots.txt` from `dist/client`
 
 The SSR entry is loaded from:
 
@@ -100,8 +107,34 @@ The server currently applies these headers to all responses:
 - `Cross-Origin-Opener-Policy: same-origin`
 - `Cross-Origin-Resource-Policy: same-origin`
 - `Permissions-Policy: ...`
+- `X-Robots-Tag: index, follow, ...`
 - `Content-Security-Policy: ...`
 - `Strict-Transport-Security` in production
+
+In production, the CSP uses a per-request nonce instead of `unsafe-inline`. That nonce is passed into `src/document.tsx` and applied to the hydration script, bootstrap JSON, JSON-LD scripts, and module scripts.
+
+## Robots and Sitemap
+
+The runtime exposes:
+
+```text
+GET /robots.txt
+GET /sitemap.xml
+```
+
+Current behavior:
+
+- `robots.txt` is generated dynamically from `entry.robotsConfig` when exported, otherwise from `defaultRobotsConfig()`
+- the default robots config allows normal crawlers, blocks known AI training crawlers, and can advertise `sitemap.xml`
+- `sitemap.xml` is generated from `entry.getSitemapEntries()` when exported
+- the default `src/entry-server.tsx` implementation builds sitemap entries from generated non-dynamic routes and skips `$` params
+- `public/robots.txt` is no longer required for the built-in runtime
+
+## Document Responses
+
+`src/entry-server.tsx` resolves the route, streams the HTML document, and appends any headers written to `response.headers` during route resolution.
+
+This is how `Set-Cookie` and other route-level headers reach the browser on the initial SSR response.
 
 ## Payload Endpoint
 
@@ -111,13 +144,46 @@ The runtime exposes:
 GET /__vorzela/payload?path=/some-route
 ```
 
-This endpoint is used by `server-payload` route mode and returns:
+This endpoint is used by same-origin client route transitions and returns:
 
 - merged head state
-- matches
+- matches with hydration metadata
 - pathname
-- rendered leaf HTML
+- search
+- rendered route HTML
 - status code
+
+Client-side navigation in the current islands runtime also uses this endpoint for same-origin route transitions. Redirects are returned as JSON redirect envelopes so the client router can follow them without requesting a full document first.
+
+Current payload protections and behavior:
+
+- clients must send `X-Vorzela-Navigation: payload`
+- in production, payload requests must present a same-host `Origin` or `Referer`
+- payload responses are `no-store`
+- headers written to `response.headers` during route resolution are appended to the payload response
+- redirects become JSON `{ redirect: { to, status, replace } }` envelopes instead of HTTP redirects
+
+## Analytics Endpoint
+
+When `src/entry-server.tsx` exports an `analytics` definition via `defineAnalytics(...)` from `~/router/server`, the server runtime also exposes:
+
+```text
+OPTIONS /__vorzela/analytics
+POST /__vorzela/analytics
+```
+
+This endpoint is intended for first-party analytics and attribution collection.
+
+Current behavior:
+
+- accepts small JSON event payloads from the browser client
+- can set a first-party visitor cookie on the response
+- classifies traffic from UTM parameters, click IDs, and referrer data
+- can be restricted with `allowedOrigins`
+- writes CORS headers for allowed origins
+- returns `204` on success
+
+If no analytics definition is exported, the endpoint returns `404`.
 
 ## Runtime Error Handling
 

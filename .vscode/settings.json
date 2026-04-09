@@ -1,0 +1,23 @@
+// {
+// 	"editor.codeActionsOnSave": {
+// 		"source.fixAll.eslint": "explicit"
+// 	},
+// 	"files.exclude": {
+// 		"**/.eslintcache": true,
+// 		"**/dist": true,
+// 		"src/document.tsx": true,
+// 		"src/entry-client.tsx": true,
+// 		"src/entry-server.tsx": true,
+// 		"src/routeHydration.gen.ts": true,
+// 		"src/routeTree.gen.ts": true,
+// 		"src/router": true,
+// 		"scripts": true,
+// 		"server.ts": true,
+// 		"src/cookie.ts":true
+// 	},
+// 	"search.exclude": {
+// 		"**/dist": true,
+// 		"src/routeHydration.gen.ts": true,
+// 		"src/routeTree.gen.ts": true
+// 	}
+// }

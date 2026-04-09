@@ -1,0 +1,28 @@
+{
+  "name": "create-vorzelajs",
+  "version": "0.0.1",
+  "type": "module",
+  "description": "Create a new VorzelaJs project",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vorzela/VorzelaJS.git",
+    "directory": "create-vorzelajs"
+  },
+  "bin": {
+    "create-vorzelajs": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "prompts": "^2.4.2"
+  },
+  "devDependencies": {
+    "@types/prompts": "^2.4.9",
+    "typescript": "^6.0.2"
+  }
+}

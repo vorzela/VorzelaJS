@@ -22,6 +22,31 @@ Supported conventions today:
 - `posts/index.tsx` becomes `/posts`
 - `posts/$postId.tsx` becomes `/posts/$postId`
 - `$.tsx` becomes the catch-all route `/$`
+- `.server.ts` and `.server.tsx` files are ignored as routes and can be used for colocated server-only helpers
+
+### `.server` Helpers
+
+Use `.server.ts` and `.server.tsx` files for code that should never ship to the browser.
+
+Recommended pattern:
+
+```tsx
+import { createFileRoute } from '~/router'
+
+import { getPosts } from './posts.server'
+
+export const Route = createFileRoute('/posts')({
+  loader: () => getPosts(),
+  component: PostsPage,
+})
+```
+
+Rules:
+
+- `.server` files under `src/routes` do not become routes
+- `.server` imports are allowed in `loader`, `beforeLoad`, and `validateSearch`
+- `.server` imports must not be used by route components, shared client modules, or other browser-visible code
+- if `head()` needs server-only data, compute it in `loader()` and read it from `loaderData`
 
 ### Dynamic Segments
 
@@ -75,6 +100,8 @@ Not supported yet:
 
 Import route builders from `~/router`.
 
+Import cookies, sessions, analytics, and robots helpers from `~/router/server`.
+
 ### Root Route Example
 
 ```tsx
@@ -117,11 +144,11 @@ Current supported route options:
 - `component`
 - `errorComponent`
 - `head`
+- `hydration`
 - `loader`
 - `validateSearch`
 - `beforeLoad`
 - `afterLoad`
-- `mode`
 - `notFoundComponent`
 
 ## `errorComponent`
@@ -222,6 +249,7 @@ Context passed to `beforeLoad`:
 - `params`
 - `pathname`
 - `request`
+- `response`
 - `search`
 
 Example:
@@ -245,6 +273,18 @@ export const Route = createFileRoute('/dashboard')({
 
 `loader` runs after `beforeLoad` and before the route component receives its props.
 
+Context passed to `loader`:
+
+- `context`
+- `location`
+- `params`
+- `pathname`
+- `request`
+- `response`
+- `search`
+
+Today the practical `response` surface is `response.headers`. Those headers are forwarded through both streamed document responses and payload responses.
+
 Example:
 
 ```tsx
@@ -267,9 +307,41 @@ function PostPage(props: RouteComponentProps<'/posts/$postId', PostLoaderData>) 
 }
 ```
 
+For Node-only dependencies, import a colocated `.server` helper and call it from `loader()`:
+
+```tsx
+import { createFileRoute } from '~/router'
+
+import { getPostById } from './post.server'
+
+export const Route = createFileRoute('/posts/$postId')({
+  loader: ({ params }) => getPostById(params.postId),
+  component: PostPage,
+})
+```
+
+For cookies or other route-level headers, write to `response.headers` and let the runtime forward them:
+
+```tsx
+import { createFileRoute } from '~/router'
+import { createCookie, setCookie } from '~/router/server'
+
+const sessionCookie = createCookie('__Host-session', {
+  secrets: ['replace-me'],
+})
+
+export const Route = createFileRoute('/login')({
+  loader: async ({ response }) => {
+    await setCookie(response, sessionCookie, 'signed-session-value')
+    return null
+  },
+  component: LoginPage,
+})
+```
+
 ## `afterLoad`
 
-`afterLoad` runs on the client after a successful route commit has rendered and the app has hydrated.
+`afterLoad` runs on the client after a successful route commit is visible and any matched route islands have hydrated.
 
 Use it for post-render side effects such as analytics, DOM integration, or focus management that should happen after the route is visible.
 
@@ -308,6 +380,27 @@ function ReportsPage() {
 }
 ```
 
+## `hydration`
+
+Routes can override automatic route-branch island detection.
+
+Supported values:
+
+- `auto` - default; use generated analysis from the route module and its local imports
+- `client` - force the matched route branch to hydrate on the client
+- `static` - force the matched route branch to remain static HTML
+
+Current granularity is route-branch level. If a match is marked `client`, VorzelaJs hydrates from that matched route downward until the branch ends or another boundary starts.
+
+Example:
+
+```tsx
+export const Route = createFileRoute('/marketing')({
+  hydration: 'static',
+  component: MarketingPage,
+})
+```
+
 ## `head`
 
 Routes can return document head metadata.
@@ -317,17 +410,27 @@ Supported head fields:
 - `title`
 - `meta`
 - `links`
+- `canonical`
+- `jsonLd`
 
 Example:
 
 ```tsx
-head: ({ loaderData }) => ({
+head: ({ loaderData, pathname }) => ({
   title: loaderData.title,
+  canonical: `https://example.com${pathname}`,
   meta: [
     { name: 'description', content: 'Route description' },
   ],
+  jsonLd: {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: loaderData.title,
+  },
 })
 ```
+
+Canonical links and JSON-LD are rendered during SSR and kept in sync during client navigation.
 
 ## `notFoundComponent`
 
@@ -369,32 +472,6 @@ The current implementation converts that into:
 
 - a rendered not-found component
 - a `404` response status during SSR and payload responses
-
-## Route Modes
-
-### `client`
-
-Default route mode.
-
-The client resolves route state and renders through the local component tree after hydration.
-
-### `server-payload`
-
-Hybrid route mode.
-
-The shell remains mounted, but the leaf route content is requested from the server through `/__vorzela/payload`.
-
-Example:
-
-```tsx
-export const Route = createFileRoute('/server-payload')({
-  loader: async () => ({
-    generatedAt: new Date().toISOString(),
-  }),
-  mode: 'server-payload',
-  component: ServerPayloadPage,
-})
-```
 
 ## Navigation APIs
 
@@ -484,9 +561,9 @@ See `docs/router-api.md` for detailed examples.
 
 ## Dev-Time Route Regeneration
 
-While `npm run dev` is running, VorzelaJs watches `src/routes` and regenerates `src/routeTree.gen.ts` on add, change, and unlink events.
+While `npm run dev` is running, VorzelaJs watches route files and other `src/**/*.ts[x]` files that can affect hydration analysis, regenerating both `src/routeTree.gen.ts` and `src/routeHydration.gen.ts` on add, change, and unlink events.
 
-That means new route files are detected without restarting the dev server.
+That means new route files and changed client or static hydration detection are picked up without restarting the dev server.
 
 ## What Is Missing
 

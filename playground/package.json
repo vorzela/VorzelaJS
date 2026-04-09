@@ -1,0 +1,21 @@
+{
+  "name": "vorzelajs-playground",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vorzelajs dev",
+    "build": "vorzelajs build",
+    "serve": "NODE_ENV=production vorzelajs serve",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "vorzelajs": "file:..",
+    "solid-js": "^1.9.11",
+    "@fontsource/inter": "^5.2.8"
+  },
+  "devDependencies": {
+    "tailwindcss": "^4.2.2",
+    "@tailwindcss/vite": "^4.2.2",
+    "typescript": "^6.0.2"
+  }
+}

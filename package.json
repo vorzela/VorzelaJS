@@ -1,26 +1,74 @@
 {
   "name": "vorzelajs",
-  "private": true,
+  "version": "0.0.1",
   "type": "module",
+  "description": "Batteries-included SolidJS framework with file-based routing, streamed SSR, and server-only boundaries",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vorzela/VorzelaJS.git"
+  },
+  "bin": {
+    "vorzelajs": "./bin/vorzelajs.mjs"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/runtime/index.d.ts",
+      "import": "./dist/runtime/index.js"
+    },
+    "./server": {
+      "types": "./dist/runtime/server.d.ts",
+      "import": "./dist/runtime/server.js"
+    },
+    "./vite": {
+      "types": "./dist/vite/index.d.ts",
+      "import": "./dist/vite/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "bin",
+    "templates"
+  ],
   "scripts": {
     "generate:routes": "node --import tsx scripts/generate-routes.ts",
     "dev": "npm run generate:routes && node --import tsx server.ts",
+    "build:framework": "tsc -p tsconfig.build.json",
     "build": "npm run generate:routes && npm run build:client && npm run build:server",
     "build:client": "vite build",
     "build:server": "vite build --ssr src/entry-server.tsx --outDir dist/server",
     "serve": "NODE_ENV=production node --import tsx server.ts",
-    "check": "npm run generate:routes && tsc --noEmit"
+    "check": "npm run generate:routes && tsc --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.4",
+    "error-stack-parser": "^2.1.4",
     "hono": "^4.10.1",
-    "solid-js": "^1.9.11"
+    "tsx": "^4.21.0",
+    "vite-plugin-solid": "^2.11.12"
+  },
+  "peerDependencies": {
+    "solid-js": "^1.8",
+    "vite": "^8"
+  },
+  "optionalDependencies": {
+    "@tailwindcss/vite": "^4.2.2",
+    "tailwindcss": "^4.2.2"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@fontsource/inter": "^5.2.8",
+    "@types/error-stack-parser": "^1.3.18",
     "@types/node": "^25.5.2",
-    "tsx": "^4.21.0",
+    "eslint": "^10.2.0",
+    "eslint-plugin-simple-import-sort": "^13.0.0",
+    "eslint-plugin-unused-imports": "^4.4.1",
+    "globals": "^17.4.0",
+    "solid-js": "^1.9.11",
     "typescript": "^6.0.2",
-    "vite": "^8.0.5",
-    "vite-plugin-solid": "^2.11.12"
+    "typescript-eslint": "^8.58.1",
+    "vite": "^8.0.5"
   }
 }

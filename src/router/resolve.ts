@@ -1,25 +1,35 @@
+import { parseErrorStack } from '../debug/error-stack'
+import { routeHydrationManifest } from '../routeHydration.gen'
 import { routeManifest } from '../routeTree.gen'
-
 import { mergeHeads } from './head'
 import { isNotFound, isRedirect } from './navigation'
 import { buildRouteBranch, matchPathPattern, normalizePath } from './path'
-
 import type {
   AnyRouteDefinition,
   BootstrapPayload,
+  GeneratedRouteHydrationRecord,
   GeneratedRouteRecord,
   HeadObject,
-  RouteSearch,
+  ResolvedMatch,
+  ResolvedRouteHydration,
+  ResolvedRouteState,
   RouteErrorData,
   RouteErrorPhase,
   RouteErrorState,
-  ResolvedMatch,
-  ResolvedRouteState,
-  RouterContextValue,
   RouteLocation,
   RoutePayloadEnvelope,
+  RouterContextValue,
+  RouteResponseStub,
+  RouteSearch,
   SerializedMatch,
 } from './types'
+
+function createResponseStub(): RouteResponseStub {
+  return {
+    headers: new Headers(),
+    status: 200,
+  }
+}
 
 function createClientRequest(pathname: string) {
   if (typeof window === 'undefined') {
@@ -33,14 +43,14 @@ function createClientRequest(pathname: string) {
   })
 }
 
-function createRouteLocation(pathname: string, request: Request): RouteLocation {
-  const url = new URL(request.url)
+function createRouteLocation(target: string, pathname: string, request: Request): RouteLocation {
+  const targetUrl = new URL(target, new URL(request.url).origin)
 
   return {
-    href: url.href,
+    href: targetUrl.href,
     pathname,
-    search: url.search,
-    searchParams: url.searchParams,
+    search: targetUrl.search,
+    searchParams: targetUrl.searchParams,
   }
 }
 
@@ -106,8 +116,13 @@ function resolveErrorHandlerId(
 }
 
 function createRouteErrorData(error: unknown, phase: RouteErrorPhase): RouteErrorData {
+  const debug = process.env.NODE_ENV !== 'production'
+    ? parseErrorStack(error)
+    : undefined
+
   if (error instanceof Error) {
     return {
+      debug,
       message: error.message || 'Unexpected route error',
       name: error.name || 'Error',
       phase,
@@ -116,6 +131,7 @@ function createRouteErrorData(error: unknown, phase: RouteErrorPhase): RouteErro
   }
 
   return {
+    debug,
     message: typeof error === 'string' ? error : 'Unexpected route error',
     name: 'Error',
     phase,
@@ -136,21 +152,29 @@ function createRouteErrorState(
   }
 }
 
+function resolveMatchHydration(
+  entry: GeneratedRouteRecord,
+  route: AnyRouteDefinition,
+): ResolvedRouteHydration {
+  const hydrationManifest = routeHydrationManifest as Record<string, GeneratedRouteHydrationRecord>
+  const detected = hydrationManifest[entry.id]?.detected ?? 'static'
+  const configured = route.options.hydration ?? 'auto'
+
+  return configured === 'auto' ? detected : configured
+}
+
 function createResolvedMatch(
   entry: GeneratedRouteRecord,
   route: AnyRouteDefinition,
   params: Record<string, string>,
-  bestMatchId: string,
   loaderData: unknown,
   search: unknown,
 ): ResolvedMatch {
   return {
     fullPath: entry.fullPath,
+    hydration: resolveMatchHydration(entry, route),
     id: entry.id,
     loaderData,
-    mode: entry.id === bestMatchId && route.kind === 'file'
-      ? route.options.mode ?? 'client'
-      : 'client',
     params,
     route,
     search,
@@ -191,8 +215,9 @@ export async function resolveRoute(
 ): Promise<ResolvedRouteState> {
   const normalized = normalizePath(target)
   const request = options.request ?? createClientRequest(target)
+  const responseStub = createResponseStub()
   const context = options.context ?? {}
-  const location = createRouteLocation(normalized, request)
+  const location = createRouteLocation(target, normalized, request)
   const rawSearch = createRawSearch(location.searchParams)
   const bestMatch = selectBestMatch(normalized)
 
@@ -218,7 +243,7 @@ export async function resolveRoute(
           return {
             head: mergeHeads([]),
             matches: [
-              createResolvedMatch(rootEntry, rootRoute, {}, rootEntry.id, undefined, rawSearch),
+              createResolvedMatch(rootEntry, rootRoute, {}, undefined, rawSearch),
             ],
             notFound: {
               handlerId: rootRoute.options.notFoundComponent ? rootEntry.id : null,
@@ -226,6 +251,7 @@ export async function resolveRoute(
             },
             pathname: normalized,
             renderSource: 'component',
+            responseHeaders: responseStub.headers,
             search: location.search,
           }
         }
@@ -233,10 +259,11 @@ export async function resolveRoute(
         return {
           head: mergeHeads([]),
           matches: [
-            createResolvedMatch(rootEntry, rootRoute, {}, rootEntry.id, undefined, rawSearch),
+            createResolvedMatch(rootEntry, rootRoute, {}, undefined, rawSearch),
           ],
           pathname: normalized,
           renderSource: 'component',
+          responseHeaders: responseStub.headers,
           routeError: createRouteErrorState([{ entry: rootEntry, route: rootRoute }], rootEntry.id, error, 'validateSearch'),
           search: location.search,
         }
@@ -257,7 +284,7 @@ export async function resolveRoute(
     return {
       head: mergeHeads([head]),
       matches: [
-        createResolvedMatch(rootEntry, rootRoute, {}, rootEntry.id, undefined, rootSearch),
+        createResolvedMatch(rootEntry, rootRoute, {}, undefined, rootSearch),
       ],
       notFound: {
         handlerId: rootRoute.options.notFoundComponent ? rootEntry.id : null,
@@ -265,6 +292,7 @@ export async function resolveRoute(
       },
       pathname: normalized,
       renderSource: 'component',
+      responseHeaders: responseStub.headers,
       search: location.search,
     }
   }
@@ -290,7 +318,7 @@ export async function resolveRoute(
         }
 
         if (isNotFound(error)) {
-          matches.push(createResolvedMatch(entry, route, params, bestMatch.entry.id, undefined, rawSearch))
+          matches.push(createResolvedMatch(entry, route, params, undefined, rawSearch))
 
           return {
             head: mergeHeads(accumulatedHeads),
@@ -301,17 +329,19 @@ export async function resolveRoute(
             },
             pathname: normalized,
             renderSource: 'component',
+            responseHeaders: responseStub.headers,
             search: location.search,
           }
         }
 
-        matches.push(createResolvedMatch(entry, route, params, bestMatch.entry.id, undefined, rawSearch))
+        matches.push(createResolvedMatch(entry, route, params, undefined, rawSearch))
 
         return {
           head: mergeHeads(accumulatedHeads),
           matches,
           pathname: normalized,
           renderSource: 'component',
+          responseHeaders: responseStub.headers,
           routeError: createRouteErrorState(loadedEntries, entry.id, error, 'validateSearch'),
           search: location.search,
         }
@@ -326,6 +356,7 @@ export async function resolveRoute(
           params: params as never,
           pathname: normalized,
           request,
+          response: responseStub,
           search: validatedSearch as never,
         })
 
@@ -338,7 +369,7 @@ export async function resolveRoute(
         }
 
         if (isNotFound(error)) {
-          matches.push(createResolvedMatch(entry, route, params, bestMatch.entry.id, undefined, validatedSearch))
+          matches.push(createResolvedMatch(entry, route, params, undefined, validatedSearch))
 
           return {
             head: mergeHeads(accumulatedHeads),
@@ -349,17 +380,19 @@ export async function resolveRoute(
             },
             pathname: normalized,
             renderSource: 'component',
+            responseHeaders: responseStub.headers,
             search: location.search,
           }
         }
 
-        matches.push(createResolvedMatch(entry, route, params, bestMatch.entry.id, undefined, validatedSearch))
+        matches.push(createResolvedMatch(entry, route, params, undefined, validatedSearch))
 
         return {
           head: mergeHeads(accumulatedHeads),
           matches,
           pathname: normalized,
           renderSource: 'component',
+          responseHeaders: responseStub.headers,
           routeError: createRouteErrorState(loadedEntries, entry.id, error, 'beforeLoad'),
           search: location.search,
         }
@@ -376,6 +409,7 @@ export async function resolveRoute(
           params: params as never,
           pathname: normalized,
           request,
+          response: responseStub,
           search: validatedSearch as never,
         })
       } catch (error) {
@@ -384,7 +418,7 @@ export async function resolveRoute(
         }
 
         if (isNotFound(error)) {
-          matches.push(createResolvedMatch(entry, route, params, bestMatch.entry.id, undefined, validatedSearch))
+          matches.push(createResolvedMatch(entry, route, params, undefined, validatedSearch))
 
           return {
             head: mergeHeads(accumulatedHeads),
@@ -395,17 +429,19 @@ export async function resolveRoute(
             },
             pathname: normalized,
             renderSource: 'component',
+            responseHeaders: responseStub.headers,
             search: location.search,
           }
         }
 
-        matches.push(createResolvedMatch(entry, route, params, bestMatch.entry.id, undefined, validatedSearch))
+        matches.push(createResolvedMatch(entry, route, params, undefined, validatedSearch))
 
         return {
           head: mergeHeads(accumulatedHeads),
           matches,
           pathname: normalized,
           renderSource: 'component',
+          responseHeaders: responseStub.headers,
           routeError: createRouteErrorState(loadedEntries, entry.id, error, 'loader'),
           search: location.search,
         }
@@ -429,20 +465,21 @@ export async function resolveRoute(
           accumulatedHeads.push(head)
         }
       } catch (error) {
-        matches.push(createResolvedMatch(entry, route, params, bestMatch.entry.id, loaderData, validatedSearch))
+        matches.push(createResolvedMatch(entry, route, params, loaderData, validatedSearch))
 
         return {
           head: mergeHeads(accumulatedHeads),
           matches,
           pathname: normalized,
           renderSource: 'component',
+          responseHeaders: responseStub.headers,
           routeError: createRouteErrorState(loadedEntries, entry.id, error, 'render'),
           search: location.search,
         }
       }
     }
 
-    matches.push(createResolvedMatch(entry, route, params, bestMatch.entry.id, loaderData, validatedSearch))
+    matches.push(createResolvedMatch(entry, route, params, loaderData, validatedSearch))
   }
 
   return {
@@ -450,6 +487,7 @@ export async function resolveRoute(
     matches,
     pathname: normalized,
     renderSource: 'component',
+    responseHeaders: responseStub.headers,
     search: location.search,
   }
 }
@@ -459,9 +497,9 @@ export function serializeRouteState(state: ResolvedRouteState): BootstrapPayload
     head: state.head,
     matches: state.matches.map((match) => ({
       fullPath: match.fullPath,
+      hydration: match.hydration,
       id: match.id,
       loaderData: match.loaderData,
-      mode: match.mode,
       params: match.params,
       search: match.search,
     })),

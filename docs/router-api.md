@@ -1,15 +1,18 @@
 # Router API Reference
 
-This guide covers every helper currently exported from `~/router`.
+This guide covers the public helper barrels and major route options currently implemented by VorzelaJs.
 
-Regular application code will mainly use:
+Use `~/router` for route definitions, navigation, search helpers, rendering, and route lifecycle hooks.
+
+Use `~/router/server` for cookies, sessions, analytics, and robots helpers.
+
+Main imports from `~/router`:
 
 - `createRootRoute`
 - `createFileRoute`
 - `createRouter`
 - `Link`
 - `Outlet`
-- `RouterProvider`
 - `redirect`
 - `resolveRedirectTarget`
 - `withRedirectParam`
@@ -17,7 +20,6 @@ Regular application code will mainly use:
 - `isRedirect`
 - `notFound`
 - `isNotFound`
-- `errorComponent`
 - `useNavigate`
 - `useParams`
 - `useSearch`
@@ -25,10 +27,36 @@ Regular application code will mainly use:
 - `useLoaderData`
 - `useRouter`
 
-Advanced/internal runtime helpers also exported today:
+Main imports from `~/router/server`:
 
+- `DEFAULT_ANALYTICS_ENDPOINT`
+- `createCookie`
+- `createCookieSessionStorage`
+- `cookiePolicies`
+- `setCookie`
+- `deleteCookie`
+- `createAnalyticsClient`
+- `defineAnalytics`
+- `extractAnalyticsTouchPoint`
+- `handleAnalyticsRequest`
+- `classifyAnalyticsTraffic`
+- `defaultRobotsConfig`
+- `defineRobotsConfig`
+- `renderRobotsTxt`
+
+Route options documented here:
+
+- `afterLoad`
+- `errorComponent`
+- `hydration`
+
+Advanced or internal runtime helpers exported from `~/router`:
+
+- `RouterProvider`
 - `readBootstrapPayload`
 - `renderResolvedMatches`
+
+Today the browser-side analytics client also lives under `~/router/server`, because non-routing framework helpers are grouped there.
 
 ## `createRootRoute`
 
@@ -132,7 +160,7 @@ function LoginPage() {
 Creates the client router instance from the SSR bootstrap payload.
 
 ```tsx
-import { RouterProvider, createRouter, readBootstrapPayload } from '~/router'
+import { createRouter, readBootstrapPayload } from '~/router'
 
 const router = createRouter(readBootstrapPayload(), {
   context: {
@@ -156,10 +184,13 @@ Current router instance fields:
 - `notFound`
 - `routeError`
 - `search`
+- `matches`, where each match includes `hydration`
 
 ## `RouterProvider`
 
 Provides the router to the application.
+
+This is now mostly an internal runtime helper used when VorzelaJs hydrates individual route islands. Typical application entry points should call `router.init()` and let the runtime manage island hydration automatically.
 
 ```tsx
 import { RouterProvider } from '~/router'
@@ -181,8 +212,30 @@ import { Link } from '~/router'
 Current behavior:
 
 - intercepts same-origin left clicks
+- works before and after island hydration because the runtime also installs delegated document-level navigation
 - respects modifier keys and `_blank`
 - falls through for external URLs
+
+## `hydration`
+
+`hydration` is a route option on `createRootRoute()` and `createFileRoute()`.
+
+Supported values:
+
+- `auto`
+- `client`
+- `static`
+
+Use it to override the generated route hydration analysis when a route should definitely hydrate or definitely stay static.
+
+```tsx
+import { createFileRoute } from '~/router'
+
+export const Route = createFileRoute('/docs')({
+  hydration: 'static',
+  component: DocsPage,
+})
+```
 
 ## `filterSearch`
 
@@ -217,6 +270,486 @@ const nextSearch = {
   tag: filterSearch.array(['alpha', 'beta']),
 }
 ```
+
+Available read helpers:
+
+- `filterSearch.readArray(search, key)`
+- `filterSearch.readBoolean(search, key, fallback?)`
+- `filterSearch.readPage(search, key?, defaultPage?)`
+- `filterSearch.readSort(search, key, allowedValues, fallback)`
+- `filterSearch.readText(search, key, fallback?)`
+
+Available write helpers:
+
+- `filterSearch.array(values)`
+- `filterSearch.boolean(value, { keepFalse? })`
+- `filterSearch.page(value, defaultPage?)`
+- `filterSearch.sort(value, defaultValue?)`
+- `filterSearch.text(value)`
+
+Behavior notes:
+
+- empty arrays become `undefined`, which removes the query param
+- `filterSearch.boolean(false)` removes the param by default
+- `filterSearch.boolean(false, { keepFalse: true })` preserves an explicit `false`
+- `filterSearch.page(value, 1)` removes page `1` by default so canonical URLs stay shorter
+
+```tsx
+const explicitFalse = filterSearch.boolean(false, { keepFalse: true })
+const hiddenDefaultPage = filterSearch.page(1)
+```
+
+### Example: Filters with a Backend API
+
+A common pattern is keeping filter state in the URL and forwarding it to a backend API in the route loader. The loader runs on the server during SSR and on client navigations, so the API call always reflects the current query params.
+
+```tsx
+// src/routes/products.server.ts
+// Server-only helper — never ships to the browser.
+
+export type ProductFilters = {
+  category: string[]
+  inStock: boolean
+  page: number
+  q: string
+  sort: 'price' | 'rating' | 'newest'
+}
+
+export type ProductsResponse = {
+  products: { id: string; name: string; price: number }[]
+  totalPages: number
+}
+
+export async function fetchProducts(filters: ProductFilters): Promise<ProductsResponse> {
+  const url = new URL('https://api.example.com/v1/products')
+
+  if (filters.q) url.searchParams.set('q', filters.q)
+  if (filters.inStock) url.searchParams.set('in_stock', 'true')
+  if (filters.sort !== 'newest') url.searchParams.set('sort', filters.sort)
+  if (filters.page > 1) url.searchParams.set('page', String(filters.page))
+  for (const cat of filters.category) url.searchParams.append('category', cat)
+
+  const res = await fetch(url)
+  if (!res.ok) throw new Error(`Products API returned ${res.status}`)
+  return res.json()
+}
+```
+
+```tsx
+// src/routes/products.tsx
+import { createFileRoute, filterSearch, useNavigate } from '~/router'
+import type { RouteComponentProps } from '~/router'
+
+import { fetchProducts } from './products.server'
+import type { ProductFilters, ProductsResponse } from './products.server'
+
+const SORT_OPTIONS = ['price', 'rating', 'newest'] as const
+
+// 1. Validate and normalize search params from the URL.
+//    validateSearch runs on every navigation before the loader.
+export const Route = createFileRoute('/products')<ProductsResponse>({
+  validateSearch: (search): ProductFilters => ({
+    category: filterSearch.readArray(search, 'category'),
+    inStock: filterSearch.readBoolean(search, 'in_stock'),
+    page: filterSearch.readPage(search, 'page'),
+    q: filterSearch.readText(search, 'q'),
+    sort: filterSearch.readSort(search, 'sort', SORT_OPTIONS, 'newest'),
+  }),
+
+  // 2. Forward the validated filters to the backend API.
+  //    `search` is the typed output of validateSearch.
+  loader: async ({ search }) => fetchProducts(search),
+
+  head: () => ({
+    title: 'Products',
+  }),
+  component: ProductsPage,
+})
+
+function ProductsPage(props: RouteComponentProps<'/products', ProductsResponse>) {
+  const search = Route.useSearch()
+  const setSearch = Route.useSetSearch()
+
+  // Helper that merges partial filter updates into the current search,
+  // resets to page 1, and replaces the history entry.
+  const applyFilters = (patch: Partial<ProductFilters>) => {
+    const current = search()
+    void setSearch({
+      category: filterSearch.array(patch.category ?? current.category),
+      in_stock: filterSearch.boolean(patch.inStock ?? current.inStock),
+      page: filterSearch.page(patch.page ?? 1),
+      q: filterSearch.text(patch.q ?? current.q),
+      sort: filterSearch.sort(patch.sort ?? current.sort, 'newest'),
+    }, { replace: true })
+  }
+
+  const toggleCategory = (cat: string) => {
+    const cats = search().category
+    applyFilters({
+      category: cats.includes(cat) ? cats.filter((c) => c !== cat) : [...cats, cat],
+    })
+  }
+
+  return (
+    <section>
+      <input
+        type="search"
+        value={search().q}
+        onInput={(e) => applyFilters({ q: e.currentTarget.value })}
+        placeholder="Search products…"
+      />
+
+      <button onClick={() => toggleCategory('shoes')}>Shoes</button>
+      <button onClick={() => toggleCategory('hats')}>Hats</button>
+
+      <button onClick={() => applyFilters({ inStock: !search().inStock })}>
+        {search().inStock ? 'Show all' : 'In stock only'}
+      </button>
+
+      <ul>
+        {props.loaderData.products.map((p) => (
+          <li>{p.name} — ${p.price}</li>
+        ))}
+      </ul>
+
+      <button
+        disabled={search().page <= 1}
+        onClick={() => applyFilters({ page: search().page - 1 })}
+      >
+        Previous
+      </button>
+      <span>Page {search().page} / {props.loaderData.totalPages}</span>
+      <button
+        disabled={search().page >= props.loaderData.totalPages}
+        onClick={() => applyFilters({ page: search().page + 1 })}
+      >
+        Next
+      </button>
+    </section>
+  )
+}
+```
+
+Key points:
+
+- `validateSearch` normalizes raw query params into typed filters before the loader runs
+- The loader receives the validated `search` and passes it straight to the API helper
+- The `.server.ts` helper is tree-shaken from the client bundle
+- `setSearch` merges the new values into the URL — other params are preserved
+- Setting `page` back to `1` on filter changes avoids empty-page results
+- Because the URL is the source of truth, the filtered view is always shareable and SSR-friendly
+
+## `createCookie`
+
+Creates a server-side cookie helper that can parse, sign, serialize, and destroy cookies.
+
+```tsx
+import { createCookie, cookiePolicies } from '~/router/server'
+
+const sessionCookie = createCookie('__Host-session', {
+  maxAge: 60 * 60 * 24 * 7,
+  secrets: ['replace-me'],
+})
+
+const apiCookie = createCookie('api-session', cookiePolicies.crossSite({
+  httpOnly: true,
+}))
+
+const embedCookie = createCookie('__Host-widget', cookiePolicies.partitioned({
+  httpOnly: true,
+  maxAge: 60 * 60 * 24 * 30,
+}))
+```
+
+Important behavior:
+
+- `SameSite=None` is automatically upgraded to `Secure`
+- `policy: 'partitioned'` automatically sets `Partitioned`, `SameSite=None`, and `Secure`
+- `policy: 'cross-site'` automatically sets `SameSite=None` and `Secure`
+- `__Host-` and `__Host-Http-` names are forced onto `Path=/` and reject `Domain`
+
+`Partitioned` is useful for isolated third-party cookie state. It is not a replacement for normal same-site subdomain cookies, and it does not remove the need for `credentials: 'include'` on cross-origin requests.
+
+## `cookiePolicies`
+
+Small helpers for common cookie deployment modes.
+
+```tsx
+import { cookiePolicies } from '~/router/server'
+
+cookiePolicies.host()
+cookiePolicies.crossSite({ httpOnly: true })
+cookiePolicies.partitioned({ httpOnly: true, maxAge: 3600 })
+```
+
+Use them when you want the framework to apply the right cookie attribute bundle instead of repeating `SameSite=None; Secure` or `Partitioned; Secure` by hand.
+
+## `setCookie` and `deleteCookie`
+
+Append `Set-Cookie` headers to a route response stub or raw `Headers` object.
+
+```tsx
+import { createCookie, deleteCookie, setCookie } from '~/router/server'
+
+const sessionCookie = createCookie('__Host-session', { secrets: ['replace-me'] })
+
+export const Route = createFileRoute('/login')({
+  loader: async ({ response }) => {
+    await setCookie(response, sessionCookie, 'signed-session-value')
+    return null
+  },
+  component: LoginPage,
+})
+
+function logout(headers: Headers) {
+  return deleteCookie(headers, sessionCookie)
+}
+```
+
+This is the easiest way to set cookies from `beforeLoad` or `loader`, because VorzelaJs already forwards `response.headers` through document and payload responses.
+
+## `createCookieSessionStorage`
+
+Creates a cookie-backed session storage with `getSession()`, `commitSession()`, and `destroySession()`.
+
+```tsx
+import { createCookieSessionStorage } from '~/router/server'
+
+const sessions = createCookieSessionStorage({
+  cookie: {
+    maxAge: 60 * 60 * 24 * 7,
+    name: '__Host-session',
+    secrets: ['replace-me'],
+  },
+})
+
+const session = await sessions.getSession(request.headers.get('Cookie'))
+session.set('userId', '42')
+const setCookieHeader = await sessions.commitSession(session)
+```
+
+Pass either raw cookie options or an already created `VorzelaCookie`.
+
+Current session object methods:
+
+- `get(key)`
+- `has(key)`
+- `set(key, value)`
+- `unset(key)`
+- `flash(key, value)`
+- `data`
+
+`flash(key, value)` stores a value for one future read. The next `get(key)` consumes that flash entry and removes it from the session.
+
+```tsx
+const session = await sessions.getSession(request.headers.get('Cookie'))
+
+session.flash('notice', 'Signed in successfully')
+const commitHeader = await sessions.commitSession(session)
+
+const nextRequestSession = await sessions.getSession(request.headers.get('Cookie'))
+const notice = nextRequestSession.get<string>('notice')
+```
+
+Important constraints:
+
+- this is cookie-backed session storage, not a server-side session database
+- session data is JSON serialized into the cookie value, so keep it small
+- cookie secrets provide integrity through signing, not confidentiality through encryption
+
+To clear the session cookie entirely:
+
+```tsx
+const expiredCookieHeader = await sessions.destroySession(session)
+```
+
+## `RouteResponseStub`
+
+`beforeLoad` and `loader` receive `response` with this shape:
+
+```tsx
+type RouteResponseStub = {
+  headers: Headers
+  status: number
+}
+```
+
+Current behavior:
+
+- `response.headers` is forwarded through both streamed document responses and payload responses
+- this is the intended place to append `Set-Cookie` and other route-level headers
+- custom `response.status` values are not yet used to override the router's built-in `200` / `404` / `500` status resolution
+
+## `createAnalyticsClient`
+
+Creates a browser-side analytics sender.
+
+```tsx
+import { createAnalyticsClient } from '~/router/server'
+
+const analytics = createAnalyticsClient()
+
+analytics.startAutoPageviews()
+void analytics.event('signup_clicked', { plan: 'pro' })
+```
+
+Current behavior:
+
+- sends events to `/__vorzela/analytics` by default
+- uses `navigator.sendBeacon()` when possible
+- falls back to `fetch(..., { keepalive: true })`
+- stores a visitor id in local storage when available
+- stores first-touch and last-touch attribution from UTM parameters and referrer data
+- auto pageview mode tracks history `pushState`, `replaceState`, and `popstate`
+
+Key options:
+
+- `endpoint`
+- `transport: 'auto' | 'beacon' | 'fetch'`
+- `credentials`
+- `includeLanguage`
+- `includeScreen`
+- `includeTimezone`
+- `storageKey`, `sessionKey`, `firstTouchKey`, `lastTouchKey`
+
+Current methods:
+
+- `analytics.event(name, properties?, payload?)`
+- `analytics.pageview(payload?)`
+- `analytics.track(payload)`
+- `analytics.startAutoPageviews({ trackInitialPageview? })`
+
+When `transport` is `auto`, `sendBeacon()` is only used for same-origin endpoints without `credentials: 'include'`. Other cases fall back to `fetch(..., { keepalive: true })`.
+
+## `DEFAULT_ANALYTICS_ENDPOINT`
+
+Constant for the built-in analytics route path.
+
+```tsx
+import { DEFAULT_ANALYTICS_ENDPOINT } from '~/router/server'
+
+console.log(DEFAULT_ANALYTICS_ENDPOINT)
+// '/__vorzela/analytics'
+```
+
+## `defineAnalytics`
+
+Defines analytics configuration for the built-in server runtime.
+
+```tsx
+import { defineAnalytics } from '~/router/server'
+
+export const analytics = defineAnalytics({
+  allowedOrigins: ['https://app.example.com'],
+  onEvent: async (event) => {
+    console.log(event.attribution.platform, event.attribution.channel)
+  },
+})
+```
+
+Export this from `src/entry-server.tsx` to activate the built-in analytics endpoint.
+
+Current options:
+
+- `allowedOrigins?: string[] | ((origin, request) => boolean)`
+- `onEvent?: (event, { payload, request }) => void | Promise<void>`
+- `visitorCookie?: false | { name?: string; options?: CookieOptions }`
+
+By default the collector uses a host-scoped `__Host-vrz_aid` visitor cookie with a 90-day max-age. Set `visitorCookie: false` to disable that cookie or override the name and options explicitly.
+
+## `handleAnalyticsRequest`
+
+Parses a browser analytics request into a normalized event shape.
+
+```tsx
+import { handleAnalyticsRequest } from '~/router/server'
+
+export async function analyticsHandler(request: Request) {
+  return handleAnalyticsRequest(request, {
+    onEvent: async (event) => {
+      console.log(event)
+    },
+  })
+}
+```
+
+Use this when your analytics collector lives in a separate backend API and you still want the same traffic classification logic as the built-in VorzelaJs runtime.
+
+Current response behavior:
+
+- `OPTIONS` requests return `204`
+- successful `POST` requests return `204`
+- invalid JSON object payloads return `400`
+- disallowed origins return `403`
+- wrong methods return `405`
+
+## `classifyAnalyticsTraffic`
+
+Classifies a landing URL and referrer into a higher-level traffic channel.
+
+```tsx
+import { classifyAnalyticsTraffic } from '~/router/server'
+
+const attribution = classifyAnalyticsTraffic({
+  landingUrl: 'https://app.example.com/pricing?utm_source=google&utm_medium=cpc&utm_campaign=spring',
+  referrer: 'https://www.google.com/search?q=vorzela',
+})
+```
+
+The current classifier looks at:
+
+- UTM parameters
+- common ad click IDs such as `gclid`, `fbclid`, `msclkid`, and `ttclid`
+- known referrer hosts for search engines and social platforms
+
+This is enough for first-party traffic analysis. It is not a substitute for ad-network conversion APIs or browser attribution APIs.
+
+Possible channels today:
+
+- `direct`
+- `email`
+- `internal`
+- `organic-search`
+- `organic-social`
+- `paid-search`
+- `paid-social`
+- `referral`
+- `unknown`
+
+## `extractAnalyticsTouchPoint`
+
+Convenience helper for turning a landing URL plus optional referrer into the normalized touch-point structure used by the analytics client and server collector.
+
+```tsx
+import { extractAnalyticsTouchPoint } from '~/router/server'
+
+const touchPoint = extractAnalyticsTouchPoint(
+  'https://app.example.com/pricing?utm_source=google&utm_medium=cpc&utm_campaign=spring',
+  'https://www.google.com/search?q=vorzela',
+)
+```
+
+Use this when you want the normalized attribution object without constructing a full analytics event.
+
+## `defaultRobotsConfig`, `defineRobotsConfig`, and `renderRobotsTxt`
+
+Helpers for dynamic `robots.txt` generation.
+
+```tsx
+import { defaultRobotsConfig, defineRobotsConfig, renderRobotsTxt } from '~/router/server'
+
+const robotsConfig = defineRobotsConfig({
+  ...defaultRobotsConfig({ siteUrl: 'https://app.example.com' }),
+  rules: [
+    { userAgent: '*', allow: ['/'] },
+    { userAgent: ['GPTBot', 'ClaudeBot'], disallow: ['/'] },
+  ],
+})
+
+const body = renderRobotsTxt(robotsConfig)
+```
+
+Use `robotsConfig` as an export from `src/entry-server.tsx` when you want the built-in runtime to serve custom robots rules. `defaultRobotsConfig()` allows normal crawlers, blocks known AI training crawlers, and advertises `sitemap.xml` when a site URL is provided.
 
 ## `Outlet`
 
@@ -458,7 +991,7 @@ Typical application routes do not need to call this directly.
 
 `afterLoad` is a route option, not a standalone helper export.
 
-It runs on the client after a successful route commit has rendered and the application has hydrated.
+It runs on the client after a successful route commit is visible and any matched route islands have hydrated.
 
 Typical uses:
 
@@ -503,33 +1036,65 @@ import { renderResolvedMatches } from '~/router'
 const view = renderResolvedMatches(state)
 ```
 
+The SSR runtime can also call `renderResolvedMatches(state, { wrapHydrationBoundaries: true })` to emit island root markers around client-hydrated route branches.
+
 Typical application routes do not need to call this directly.
 
 ## Exported Types
 
-The router also exports these types:
+Types from `~/router`:
 
 - `BootstrapPayload`
+- `GeneratedRouteHydrationRecord`
 - `HeadObject`
 - `NavigateToOptions`
 - `NotFoundState`
 - `RenderAssets`
+- `ResolvedRouteHydration`
 - `RouteAfterLoadContext`
 - `RouteBeforeLoadContext`
 - `RouteComponentProps`
 - `RouteErrorContext`
 - `RouteErrorData`
 - `RouteErrorState`
+- `RouteHydrationMode`
 - `RouteLocation`
-- `RouteMode`
+- `RouteNavigationEnvelope`
 - `RouteParams`
 - `RoutePayloadEnvelope`
+- `RouteRedirectData`
+- `RouteRedirectEnvelope`
+- `RouteResponseStub`
 - `RouteSearch`
 - `RouteSearchInput`
 - `RouteSearchUpdater`
 - `RouterCreateOptions`
 - `SetSearchFunction`
 - `SetSearchOptions`
+- `SitemapEntry`
+
+Types from `~/router/server`:
+
+- `AnalyticsClient`
+- `AnalyticsClientContext`
+- `AnalyticsClientOptions`
+- `AnalyticsClientPayload`
+- `AnalyticsDefinition`
+- `AnalyticsEvent`
+- `AnalyticsEventType`
+- `AnalyticsGeoSummary`
+- `AnalyticsTouchPoint`
+- `AnalyticsTrafficChannel`
+- `AnalyticsUserAgentSummary`
+- `CookieHeaderTarget`
+- `CookieOptions`
+- `CookiePolicy`
+- `RobotsConfig`
+- `RobotsRule`
+- `SessionData`
+- `SessionStorage`
+- `VorzelaCookie`
+- `VorzelaSession`
 
 ## Notes on Missing APIs
 

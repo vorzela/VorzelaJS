@@ -1,14 +1,14 @@
 import { renderToStream, renderToString } from 'solid-js/web'
 
 import { Document } from './document'
+import type { RenderAssets, RoutePayloadEnvelope, SitemapEntry } from './router'
 import { renderResolvedMatches } from './router'
 import {
   getResolvedRouteStatus,
   resolveRoute,
   serializeRouteState,
 } from './router/resolve'
-
-import type { RenderAssets, RoutePayloadEnvelope } from './router'
+import { routeManifest } from './routeTree.gen'
 
 function createStreamingResponse(bodyFactory: () => ReturnType<typeof renderToStream>, status = 200) {
   const encoder = new TextEncoder()
@@ -48,8 +48,10 @@ function createStreamingResponse(bodyFactory: () => ReturnType<typeof renderToSt
 export async function renderDocument({
   request,
   assets,
+  nonce,
 }: {
   assets: RenderAssets
+  nonce?: string
   request: Request
 }) {
   const url = new URL(request.url)
@@ -57,11 +59,19 @@ export async function renderDocument({
   const bootstrap = serializeRouteState(state)
   const status = getResolvedRouteStatus(state)
 
-  return createStreamingResponse(() => renderToStream(() => (
-    <Document assets={assets} bootstrap={bootstrap} head={state.head}>
-      {renderResolvedMatches(state)}
+  const response = createStreamingResponse(() => renderToStream(() => (
+    <Document assets={assets} bootstrap={bootstrap} head={state.head} nonce={nonce}>
+      {renderResolvedMatches(state, { wrapHydrationBoundaries: true })}
     </Document>
   )), status)
+
+  if (state.responseHeaders) {
+    for (const [key, value] of state.responseHeaders) {
+      response.headers.append(key, value)
+    }
+  }
+
+  return response
 }
 
 export async function renderPayload({
@@ -70,19 +80,25 @@ export async function renderPayload({
 }: {
   path: string
   request: Request
-}): Promise<RoutePayloadEnvelope> {
+}): Promise<RoutePayloadEnvelope & { responseHeaders?: Headers }> {
   const state = await resolveRoute(path, { request })
 
-  const html = renderToString(() => renderResolvedMatches({
-    matches: state.matches.slice(1),
-    notFound: state.notFound,
-    renderSource: 'component',
-    routeError: state.routeError,
+  const html = renderToString(() => renderResolvedMatches(state, {
+    wrapHydrationBoundaries: true,
   }))
 
   return {
     ...serializeRouteState(state),
     html,
+    responseHeaders: state.responseHeaders,
     status: getResolvedRouteStatus(state),
   }
+}
+
+export async function getSitemapEntries(): Promise<SitemapEntry[]> {
+  return routeManifest
+    .filter((entry) => entry.id !== '__root__' && entry.matchPath !== null && !entry.matchPath.includes('$'))
+    .map((entry) => ({
+      loc: entry.to,
+    }))
 }
