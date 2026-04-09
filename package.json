@@ -1,6 +1,6 @@
 {
   "name": "vorzelajs",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "type": "module",
   "description": "Batteries-included SolidJS framework with file-based routing, streamed SSR, and server-only boundaries",
   "license": "MIT",

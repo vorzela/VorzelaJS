@@ -1,6 +1,6 @@
 import type { Accessor, Component, JSX } from 'solid-js'
 import { createContext, createEffect, createSignal, ErrorBoundary, onCleanup, sharedConfig, splitProps, useContext } from 'solid-js'
-import { hydrate } from 'solid-js/web'
+import { hydrate, render } from 'solid-js/web'
 
 import { formatParsedStack, parseErrorStack } from '../debug/error-stack.js'
 import { syncHead } from './head.js'
@@ -469,6 +469,7 @@ export function createRouter(
     const mountPoints = Array.from(app.querySelectorAll<HTMLElement>(`[${ISLAND_ROOT_ATTRIBUTE}]`))
 
     const hydrationRoots = getHydrationRoots(nextState)
+    const isPayloadNavigation = nextState.renderSource === 'payload'
 
     for (const root of hydrationRoots) {
       const mount = mountPoints.find((candidate) => candidate.getAttribute(ISLAND_ROOT_ATTRIBUTE) === root.id)
@@ -486,17 +487,24 @@ export function createRouter(
         })
       }
 
-      const hctx = readIslandHydrationContext(mount)
+      if (isPayloadNavigation) {
+        mount.textContent = ''
+        islandDisposers.push(render(() => {
+          return renderResolvedMatches(subtreeState, { retry })
+        }, mount))
+      } else {
+        const hctx = readIslandHydrationContext(mount)
 
-      islandDisposers.push(hydrate(() => {
-        if (hctx && sharedConfig.context) {
-          sharedConfig.context.count = hctx.count
-        }
+        islandDisposers.push(hydrate(() => {
+          if (hctx && sharedConfig.context) {
+            sharedConfig.context.count = hctx.count
+          }
 
-        return renderResolvedMatches(subtreeState, { retry })
-      }, mount, {
-        renderId: hctx?.id,
-      }))
+          return renderResolvedMatches(subtreeState, { retry })
+        }, mount, {
+          renderId: hctx?.id,
+        }))
+      }
     }
 
     logDevRouterEvent('hydrate', {
