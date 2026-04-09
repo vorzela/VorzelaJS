@@ -1,6 +1,6 @@
 {
   "name": "vorzelajs",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "type": "module",
   "description": "Batteries-included SolidJS framework with file-based routing, streamed SSR, and server-only boundaries",
   "license": "MIT",
@@ -23,6 +23,10 @@
     "./vite": {
       "types": "./dist/vite/index.d.ts",
       "import": "./dist/vite/index.js"
+    },
+    "./pwa": {
+      "types": "./dist/pwa/cache.d.ts",
+      "import": "./dist/pwa/cache.js"
     }
   },
   "files": [

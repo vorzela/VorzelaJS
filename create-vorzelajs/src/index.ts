@@ -40,8 +40,17 @@ async function pathExists(p: string) {
 
 interface ProjectConfig {
   name: string
+  pwa: boolean
   template: 'bare' | 'modern'
   styling: 'tailwindcss' | 'css-modules' | 'css'
+}
+
+function generateViteConfig(config: ProjectConfig): string {
+  const optionsArg = config.pwa ? ', { pwa: true }' : ''
+  return `import { resolveVorzelaConfig } from 'vorzelajs/vite'
+
+export default resolveVorzelaConfig(import.meta.dirname${optionsArg})
+`
 }
 
 function generatePackageJson(config: ProjectConfig) {
@@ -56,7 +65,7 @@ function generatePackageJson(config: ProjectConfig) {
       check: 'tsc --noEmit',
     },
     dependencies: {
-      vorzelajs: '^0.0.8',
+      vorzelajs: '^0.0.9',
       'solid-js': '^1.9',
     } as Record<string, string>,
     devDependencies: {
@@ -104,6 +113,14 @@ async function main() {
         ],
         initial: 0,
       },
+      {
+        type: 'toggle',
+        name: 'pwa',
+        message: 'Enable PWA?',
+        initial: false,
+        active: 'Yes',
+        inactive: 'No',
+      },
     ],
     {
       onCancel() {
@@ -115,6 +132,7 @@ async function main() {
 
   const config: ProjectConfig = {
     name: argProjectName ?? response.name ?? 'my-app',
+    pwa: response.pwa ?? false,
     template: response.template ?? 'modern',
     styling: response.styling ?? 'tailwindcss',
   }
@@ -154,6 +172,12 @@ async function main() {
   await fs.writeFile(
     path.join(targetDir, 'package.json'),
     generatePackageJson(config),
+  )
+
+  // 5. Generate vite.config.ts
+  await fs.writeFile(
+    path.join(targetDir, 'vite.config.ts'),
+    generateViteConfig(config),
   )
 
   console.info(`\nDone! Next steps:\n`)

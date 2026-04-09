@@ -9,6 +9,7 @@ import type { ViteDevServer } from 'vite'
 
 import { createVorzelaApp } from '../server/index.js'
 import type { CreateAppOptions } from '../server/index.js'
+import type { RenderAssets } from '../runtime/index.js'
 import { resolveVorzelaConfig } from '../vite/index.js'
 
 type ServerEntryModule = Awaited<ReturnType<CreateAppOptions['loadEntry']>>
@@ -95,9 +96,16 @@ export async function runDev() {
     },
   })
 
-  const devAssets = {
+  const devAssets: RenderAssets = {
     css: ['/src/styles.css'],
     js: [`/@fs/${entryClientPath}`],
+  }
+
+  // Check if PWA plugin is active (user enabled pwa in their config)
+  const { getActivePwaConfig } = await import('../vite/pwa-plugin.js')
+  const pwaConfig = getActivePwaConfig()
+  if (pwaConfig) {
+    devAssets.pwa = { themeColor: pwaConfig.themeColor }
   }
 
   const loadEntry: CreateAppOptions['loadEntry'] = async () => {

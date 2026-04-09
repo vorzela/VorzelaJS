@@ -80,6 +80,12 @@ export function Document(props: DocumentProps) {
           )}
         </For>
         <NoncedHydrationScript nonce={props.nonce} />
+        {props.assets.pwa && (
+          <>
+            <link rel="manifest" href="/manifest.webmanifest" />
+            <meta name="theme-color" content={props.assets.pwa.themeColor} />
+          </>
+        )}
         <For each={props.assets.css}>
           {(href) => <link rel="stylesheet" href={href} />}
         </For>

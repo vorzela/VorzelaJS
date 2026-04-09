@@ -44,6 +44,15 @@ export async function runServe() {
     js: entry ? [`/${entry.file}`] : [],
   }
 
+  // Detect PWA: if manifest.webmanifest was generated during build, enable PWA in assets
+  const manifestWebPath = path.resolve(appRoot, 'dist/client/manifest.webmanifest')
+  try {
+    const manifestWeb = JSON.parse(await fs.readFile(manifestWebPath, 'utf-8')) as { theme_color?: string }
+    assets.pwa = { themeColor: manifestWeb.theme_color ?? '#09111f' }
+  } catch {
+    // No PWA manifest — PWA not enabled
+  }
+
   const serverEntryPath = path.resolve(appRoot, 'dist/server/entry-server.js')
   const serverEntry = await import(serverEntryPath)
 

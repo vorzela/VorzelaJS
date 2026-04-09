@@ -314,4 +314,5 @@ export type RouteNavigationEnvelope = RoutePayloadEnvelope | RouteRedirectEnvelo
 export interface RenderAssets {
   css: string[]
   js: string[]
+  pwa?: { themeColor: string }
 }

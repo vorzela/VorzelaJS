@@ -4,6 +4,7 @@ import url from 'node:url'
 
 import type { Plugin, UserConfig } from 'vite'
 
+import { vorzelaPwaPlugin } from './pwa-plugin.js'
 import { vorzelaRoutesPlugin } from './routes-plugin.js'
 import { vorzelaServerOnlyPlugin } from './server-only.js'
 
@@ -19,11 +20,52 @@ const RESOLVED_VIRTUAL_STYLES = `\0${VIRTUAL_STYLES}`
 const RESOLVED_VIRTUAL_ENTRY_CLIENT = `\0${VIRTUAL_ENTRY_CLIENT}`
 const RESOLVED_VIRTUAL_ENTRY_SERVER = `\0${VIRTUAL_ENTRY_SERVER}`
 
+export interface PwaIconDescriptor {
+  sizes: string
+  src: string
+  type?: string
+}
+
+export interface VorzelaPwaOptions {
+  backgroundColor?: string
+  display?: 'fullscreen' | 'standalone' | 'minimal-ui' | 'browser'
+  icons?: PwaIconDescriptor[]
+  name?: string
+  shortName?: string
+  themeColor?: string
+}
+
+export interface ResolvedPwaConfig {
+  backgroundColor: string
+  display: string
+  icons: PwaIconDescriptor[]
+  name: string
+  shortName: string
+  themeColor: string
+}
+
 export interface VorzelaPluginOptions {
+  /** Enable PWA support. Pass `true` for defaults or an options object. */
+  pwa?: boolean | VorzelaPwaOptions
   /** Override the Solid plugin. Pass `false` to disable auto-detection. */
   solid?: false | Plugin
   /** Override the Tailwind plugin. Pass `false` to disable auto-detection. */
   tailwind?: false | Plugin
+}
+
+function resolvePwaConfig(pwa: true | VorzelaPwaOptions): ResolvedPwaConfig {
+  const opts = pwa === true ? {} : pwa
+  return {
+    backgroundColor: opts.backgroundColor ?? '#09111f',
+    display: opts.display ?? 'standalone',
+    icons: opts.icons ?? [
+      { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+    ],
+    name: opts.name ?? 'VorzelaJs App',
+    shortName: opts.shortName ?? 'VorzelaJs',
+    themeColor: opts.themeColor ?? '#09111f',
+  }
 }
 
 function resolveFrameworkDir() {
@@ -120,6 +162,10 @@ export function vorzelaPlugin(options: VorzelaPluginOptions = {}): Plugin[] {
     vorzelaVirtualModulesPlugin(),
     vorzelaRoutesPlugin(),
   ]
+
+  if (options.pwa) {
+    plugins.push(vorzelaPwaPlugin(resolvePwaConfig(options.pwa)))
+  }
 
   return plugins
 }

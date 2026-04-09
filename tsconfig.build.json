@@ -26,7 +26,8 @@
     "src/cookie.ts",
     "src/session.ts",
     "src/seo.ts",
-    "src/debug/**/*.ts"
+    "src/debug/**/*.ts",
+    "src/pwa/**/*.ts"
   ],
   "exclude": ["node_modules", "dist"]
 }
