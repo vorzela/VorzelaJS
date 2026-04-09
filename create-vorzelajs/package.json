@@ -1,6 +1,6 @@
 {
   "name": "create-vorzelajs",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "type": "module",
   "description": "Create a new VorzelaJs project",
   "license": "MIT",

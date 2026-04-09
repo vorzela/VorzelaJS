@@ -13,7 +13,7 @@ const SERVER_ONLY_DIR_PATTERN = /[\\/]\.server[\\/]/u
 const SERVER_ONLY_SPECIFIER_PATTERN = /(?:^|[\\/])\.server(?:[\\/]|$)|\.server(?:$|\.)/u
 
 const CLIENT_EVENT_HANDLER_PATTERN = /\bon[A-Z][A-Za-z0-9]*\s*=/u
-const CLIENT_ROUTER_HOOK_PATTERN = /\b(useNavigate|useSetSearch|Route\.useSetSearch)\b/u
+const CLIENT_ROUTER_HOOK_PATTERN = /\b(useNavigate|useSearch|useSetSearch|Route\.useSearch|Route\.useSetSearch)\b/u
 const CLIENT_SOLID_HOOK_PATTERN = /\b(createSignal|createEffect|createRenderEffect|createResource|onMount|onCleanup)\b/u
 const CLIENT_BROWSER_GLOBAL_PATTERN = /\b(window|document|navigator|localStorage|sessionStorage)\s*\./u
 const CLIENT_BROWSER_FUNCTION_PATTERN = /\b(requestAnimationFrame|matchMedia)\s*\(/u
@@ -231,8 +231,17 @@ function detectRouteHydration(source: string) {
     : 'static'
 }
 
-function isLocalModuleSpecifier(specifier: string) {
-  return specifier.startsWith('./') || specifier.startsWith('../')
+const SOURCE_DIR = 'src'
+
+function isHydrationTrackedSpecifier(specifier: string) {
+  if (/^~\/(router|runtime)(\/|$)/u.test(specifier)) {
+    return false
+  }
+
+  return specifier.startsWith('./')
+    || specifier.startsWith('../')
+    || specifier === '~'
+    || specifier.startsWith('~/')
 }
 
 function extractLocalImportSpecifiers(source: string) {
@@ -244,7 +253,7 @@ function extractLocalImportSpecifiers(source: string) {
     for (const match of source.matchAll(pattern)) {
       const specifier = match[1]
 
-      if (specifier && isLocalModuleSpecifier(specifier) && !isServerOnlyModuleSpecifier(specifier)) {
+      if (specifier && isHydrationTrackedSpecifier(specifier) && !isServerOnlyModuleSpecifier(specifier)) {
         specifiers.add(specifier)
       }
     }
@@ -262,10 +271,18 @@ async function pathExists(filePath: string) {
   }
 }
 
-async function resolveLocalModulePath(specifier: string, importerPath: string) {
-  const basePath = path.resolve(path.dirname(importerPath), specifier)
-  const candidates = path.extname(basePath)
-    ? [basePath]
+async function resolveLocalModulePath(specifier: string, importerPath: string, projectRoot: string) {
+  const basePath = specifier === '~'
+    ? path.resolve(projectRoot, SOURCE_DIR)
+    : specifier.startsWith('~/')
+      ? path.resolve(projectRoot, SOURCE_DIR, specifier.slice(2))
+      : path.resolve(path.dirname(importerPath), specifier)
+  const ext = path.extname(basePath)
+  const JS_TO_TS_EXTENSIONS: Record<string, string[]> = { '.js': ['.ts', '.tsx', '.js'], '.jsx': ['.tsx', '.jsx'] }
+  const candidates = ext
+    ? ext in JS_TO_TS_EXTENSIONS
+      ? JS_TO_TS_EXTENSIONS[ext]!.map((replacement) => basePath.slice(0, -ext.length) + replacement)
+      : [basePath]
     : [
         ...SOURCE_FILE_EXTENSIONS.map((extension) => `${basePath}${extension}`),
         ...SOURCE_FILE_EXTENSIONS.map((extension) => path.join(basePath, `index${extension}`)),
@@ -283,6 +300,7 @@ async function resolveLocalModulePath(specifier: string, importerPath: string) {
 async function detectRouteHydrationFromFile(
   filePath: string,
   cache: Map<string, Promise<'client' | 'static'>>,
+  projectRoot: string,
 ): Promise<'client' | 'static'> {
   const resolvedPath = path.resolve(filePath)
   const cached = cache.get(resolvedPath)
@@ -299,13 +317,13 @@ async function detectRouteHydrationFromFile(
     }
 
     for (const specifier of extractLocalImportSpecifiers(source)) {
-      const dependencyPath = await resolveLocalModulePath(specifier, resolvedPath)
+      const dependencyPath = await resolveLocalModulePath(specifier, resolvedPath, projectRoot)
 
       if (!dependencyPath) {
         continue
       }
 
-      if (await detectRouteHydrationFromFile(dependencyPath, cache) === 'client') {
+      if (await detectRouteHydrationFromFile(dependencyPath, cache, projectRoot) === 'client') {
         return 'client'
       }
     }
@@ -318,7 +336,7 @@ async function detectRouteHydrationFromFile(
   return pending
 }
 
-async function createGeneratedHydrationFile(routes: RouteInfo[]) {
+async function createGeneratedHydrationFile(routes: RouteInfo[], projectRoot: string) {
   const sortedRoutes = [...routes].sort((left, right) => {
     if (left.id === '__root__') return -1
     if (right.id === '__root__') return 1
@@ -327,7 +345,7 @@ async function createGeneratedHydrationFile(routes: RouteInfo[]) {
   const hydrationCache = new Map<string, Promise<'client' | 'static'>>()
 
   const hydrationEntries = await Promise.all(sortedRoutes.map(async (route) => {
-    const detected = await detectRouteHydrationFromFile(route.filePath, hydrationCache)
+    const detected = await detectRouteHydrationFromFile(route.filePath, hydrationCache, projectRoot)
 
     return `  '${route.id}': { detected: '${detected}' }`
   }))
@@ -378,7 +396,7 @@ export async function generateRoutes(projectRoot = process.cwd()) {
 
   await Promise.all([
     writeIfChanged(outputPath, createGeneratedFile(routesWithParents)),
-    writeIfChanged(hydrationOutputPath, await createGeneratedHydrationFile(routesWithParents)),
+    writeIfChanged(hydrationOutputPath, await createGeneratedHydrationFile(routesWithParents, projectRoot)),
   ])
 }
 

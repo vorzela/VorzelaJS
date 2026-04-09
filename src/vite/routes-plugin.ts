@@ -13,7 +13,7 @@ const SERVER_ONLY_DIR_PATTERN = /[\\/]\.server[\\/]/u
 const SERVER_ONLY_SPECIFIER_PATTERN = /(?:^|[\\/])\.server(?:[\\/]|$)|\.server(?:$|\.)/u
 
 const CLIENT_EVENT_HANDLER_PATTERN = /\bon[A-Z][A-Za-z0-9]*\s*=/u
-const CLIENT_ROUTER_HOOK_PATTERN = /\b(useNavigate|useSetSearch|Route\.useSetSearch)\b/u
+const CLIENT_ROUTER_HOOK_PATTERN = /\b(useNavigate|useSearch|useSetSearch|Route\.useSearch|Route\.useSetSearch)\b/u
 const CLIENT_SOLID_HOOK_PATTERN = /\b(createSignal|createEffect|createRenderEffect|createResource|onMount|onCleanup)\b/u
 const CLIENT_BROWSER_GLOBAL_PATTERN = /\b(window|document|navigator|localStorage|sessionStorage)\s*\./u
 const CLIENT_BROWSER_FUNCTION_PATTERN = /\b(requestAnimationFrame|matchMedia)\s*\(/u
@@ -232,6 +232,10 @@ function detectRouteHydration(source: string) {
 }
 
 function isHydrationTrackedSpecifier(specifier: string) {
+  if (/^~\/(router|runtime)(\/|$)/u.test(specifier)) {
+    return false
+  }
+
   return specifier.startsWith('./')
     || specifier.startsWith('../')
     || specifier === '~'
@@ -271,8 +275,12 @@ async function resolveLocalModulePath(specifier: string, importerPath: string, p
     : specifier.startsWith('~/')
       ? path.resolve(projectRoot, SOURCE_DIR, specifier.slice(2))
       : path.resolve(path.dirname(importerPath), specifier)
-  const candidates = path.extname(basePath)
-    ? [basePath]
+  const ext = path.extname(basePath)
+  const JS_TO_TS_EXTENSIONS: Record<string, string[]> = { '.js': ['.ts', '.tsx', '.js'], '.jsx': ['.tsx', '.jsx'] }
+  const candidates = ext
+    ? ext in JS_TO_TS_EXTENSIONS
+      ? JS_TO_TS_EXTENSIONS[ext]!.map((replacement) => basePath.slice(0, -ext.length) + replacement)
+      : [basePath]
     : [
         ...SOURCE_FILE_EXTENSIONS.map((extension) => `${basePath}${extension}`),
         ...SOURCE_FILE_EXTENSIONS.map((extension) => path.join(basePath, `index${extension}`)),

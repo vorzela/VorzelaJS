@@ -7,9 +7,9 @@ import type { GeneratedRouteHydrationRecord } from './router/types'
 
 export const routeHydrationManifest = {
   '__root__': { detected: 'static' },
-  '/': { detected: 'static' },
+  '/': { detected: 'client' },
   '/_guest': { detected: 'static' },
-  '/_guest/login': { detected: 'static' },
+  '/_guest/login': { detected: 'client' },
   '/$': { detected: 'static' },
   '/about': { detected: 'static' },
   '/errors/loader': { detected: 'client' },
