@@ -50,11 +50,11 @@ function tryRequirePlugin(name: string): Plugin | null {
   }
 }
 
-async function tryImportPlugin(name: string): Promise<Plugin | null> {
+async function tryImportPlugin(name: string, options?: Record<string, unknown>): Promise<Plugin | null> {
   try {
     const mod = await import(name)
     const fn = mod.default ?? mod
-    return typeof fn === 'function' ? fn() : null
+    return typeof fn === 'function' ? fn(options) : null
   } catch {
     return null
   }
@@ -135,7 +135,7 @@ export async function resolveVorzelaConfig(
     if (options.solid) {
       plugins.push(options.solid)
     } else {
-      const solidPlugin = await tryImportPlugin('vite-plugin-solid')
+      const solidPlugin = await tryImportPlugin('vite-plugin-solid', { ssr: true })
       if (solidPlugin) {
         plugins.push(solidPlugin)
       }
