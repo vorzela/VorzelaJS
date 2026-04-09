@@ -10,7 +10,7 @@
     "directory": "create-vorzelajs"
   },
   "bin": {
-    "create-vorzelajs": "./dist/index.js"
+    "create-vorzelajs": "dist/index.js"
   },
   "files": [
     "dist"
