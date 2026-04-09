@@ -1,4 +1,4 @@
-import { normalizeHref, normalizePath, normalizeSearch } from './path'
+import { normalizeHref, normalizePath, normalizeSearch } from './path.js'
 import type {
   NavigateToOptions,
   RouteSearch,
@@ -6,7 +6,7 @@ import type {
   RouteSearchPrimitive,
   RouteSearchUpdater,
   RouteSearchValue,
-} from './types'
+} from './types.js'
 
 const SEARCH_BASE_URL = 'http://vorzelajs.local'
 

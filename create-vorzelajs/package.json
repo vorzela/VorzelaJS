@@ -1,6 +1,6 @@
 {
   "name": "create-vorzelajs",
-  "version": "0.0.2",
+  "version": "0.0.4",
   "type": "module",
   "description": "Create a new VorzelaJs project",
   "license": "MIT",
@@ -18,7 +18,8 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "prepack": "node --input-type=module -e \"import fs from 'node:fs'; fs.cpSync('../templates', 'templates', { recursive: true })\""
+    "prepack": "node --input-type=module -e \"import fs from 'node:fs'; fs.rmSync('templates', { recursive: true, force: true }); fs.cpSync('../templates', 'templates', { recursive: true })\"",
+    "postpack": "node --input-type=module -e \"import fs from 'node:fs'; fs.rmSync('templates', { recursive: true, force: true })\""
   },
   "dependencies": {
     "prompts": "^2.4.2"

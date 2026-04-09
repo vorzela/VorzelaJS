@@ -1,6 +1,6 @@
 {
   "name": "vorzelajs",
-  "version": "0.0.1",
+  "version": "0.0.3",
   "type": "module",
   "description": "Batteries-included SolidJS framework with file-based routing, streamed SSR, and server-only boundaries",
   "license": "MIT",
@@ -14,7 +14,7 @@
   "exports": {
     ".": {
       "types": "./dist/runtime/index.d.ts",
-      "import": "./dist/runtime/index.js"
+      "import": "./dist/runtime/index.jsx"
     },
     "./server": {
       "types": "./dist/runtime/server.d.ts",

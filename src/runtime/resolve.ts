@@ -1,11 +1,11 @@
-import { parseErrorStack } from '../debug/error-stack'
+import { parseErrorStack } from '../debug/error-stack.js'
 // @ts-expect-error resolved by vorzelajs vite plugin
 import { routeHydrationManifest } from 'virtual:vorzela/hydration'
 // @ts-expect-error resolved by vorzelajs vite plugin
 import { routeManifest } from 'virtual:vorzela/routes'
-import { mergeHeads } from './head'
-import { isNotFound, isRedirect } from './navigation'
-import { buildRouteBranch, matchPathPattern, normalizePath } from './path'
+import { mergeHeads } from './head.js'
+import { isNotFound, isRedirect } from './navigation.js'
+import { buildRouteBranch, matchPathPattern, normalizePath } from './path.js'
 import type {
   AnyRouteDefinition,
   BootstrapPayload,
@@ -24,7 +24,7 @@ import type {
   RouteResponseStub,
   RouteSearch,
   SerializedMatch,
-} from './types'
+} from './types.js'
 
 const generatedRouteHydrationManifest = routeHydrationManifest as Record<string, GeneratedRouteHydrationRecord>
 const generatedRouteManifest = routeManifest as readonly GeneratedRouteRecord[]

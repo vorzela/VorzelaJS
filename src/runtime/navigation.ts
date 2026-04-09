@@ -1,4 +1,4 @@
-import { normalizeHref, normalizePath } from './path'
+import { normalizeHref, normalizePath } from './path.js'
 
 const REDIRECT_SIGNAL = Symbol.for('vorzelajs.redirect')
 const NOT_FOUND_SIGNAL = Symbol.for('vorzelajs.not-found')

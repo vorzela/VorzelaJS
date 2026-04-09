@@ -1,6 +1,6 @@
 import './styles.css'
 
-import { createRouter, readBootstrapPayload } from './router'
+import { createRouter, readBootstrapPayload } from './router/index.js'
 
 async function start() {
 	const router = createRouter(readBootstrapPayload())

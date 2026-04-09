@@ -1,4 +1,4 @@
-import type { GeneratedRouteRecord } from './types'
+import type { GeneratedRouteRecord } from './types.js'
 
 function stripHash(value: string) {
   return value.split('#', 1)[0] ?? '/'

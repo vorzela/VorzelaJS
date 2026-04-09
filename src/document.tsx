@@ -2,7 +2,7 @@ import type { JSX } from 'solid-js'
 import { For } from 'solid-js'
 import { HydrationScript } from 'solid-js/web'
 
-import type { BootstrapPayload, HeadObject, RenderAssets } from './router'
+import type { BootstrapPayload, HeadObject, RenderAssets } from './router/index.js'
 
 interface DocumentProps {
   assets: RenderAssets

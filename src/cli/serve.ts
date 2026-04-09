@@ -4,8 +4,8 @@ import path from 'node:path'
 
 import { getRequestListener } from '@hono/node-server'
 
-import { createVorzelaApp } from '../server'
-import type { RenderAssets } from '../runtime'
+import { createVorzelaApp } from '../server/index.js'
+import type { RenderAssets } from '../runtime/index.js'
 
 interface ClientManifestEntry {
   assets?: string[]

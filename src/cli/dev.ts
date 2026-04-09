@@ -6,9 +6,9 @@ import path from 'node:path'
 import { getRequestListener } from '@hono/node-server'
 import type { ViteDevServer } from 'vite'
 
-import { createVorzelaApp } from '../server'
-import type { CreateAppOptions } from '../server'
-import { resolveVorzelaConfig } from '../vite'
+import { createVorzelaApp } from '../server/index.js'
+import type { CreateAppOptions } from '../server/index.js'
+import { resolveVorzelaConfig } from '../vite/index.js'
 
 type ServerEntryModule = Awaited<ReturnType<CreateAppOptions['loadEntry']>>
 
@@ -66,7 +66,7 @@ export async function runDev() {
   const port = Number(process.env.PORT ?? 3080)
   const hmrPort = Number(process.env.VORZELA_HMR_PORT ?? 24678)
 
-  const { vorzelaServerOnlyPlugin } = await import('../vite/server-only')
+  const { vorzelaServerOnlyPlugin } = await import('../vite/server-only.js')
   const solidPlugin = await import('vite-plugin-solid').then((m) => m.default).catch(() => null)
 
   const baseConfig = await resolveVorzelaConfig(appRoot)

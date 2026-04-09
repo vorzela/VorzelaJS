@@ -1,9 +1,9 @@
-import { parseErrorStack } from '../debug/error-stack'
-import { routeHydrationManifest } from '../routeHydration.gen'
-import { routeManifest } from '../routeTree.gen'
-import { mergeHeads } from './head'
-import { isNotFound, isRedirect } from './navigation'
-import { buildRouteBranch, matchPathPattern, normalizePath } from './path'
+import { parseErrorStack } from '../debug/error-stack.js'
+import { routeHydrationManifest } from '../routeHydration.gen.js'
+import { routeManifest } from '../routeTree.gen.js'
+import { mergeHeads } from './head.js'
+import { isNotFound, isRedirect } from './navigation.js'
+import { buildRouteBranch, matchPathPattern, normalizePath } from './path.js'
 import type {
   AnyRouteDefinition,
   BootstrapPayload,
@@ -22,7 +22,7 @@ import type {
   RouteResponseStub,
   RouteSearch,
   SerializedMatch,
-} from './types'
+} from './types.js'
 
 function createResponseStub(): RouteResponseStub {
   return {

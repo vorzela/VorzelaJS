@@ -1,14 +1,14 @@
 import { renderToStream, renderToString } from 'solid-js/web'
 
-import { Document } from './document'
-import type { RenderAssets, RoutePayloadEnvelope, SitemapEntry } from './router'
-import { renderResolvedMatches } from './router'
+import { Document } from './document.js'
+import type { RenderAssets, RoutePayloadEnvelope, SitemapEntry } from './router/index.js'
+import { renderResolvedMatches } from './router/index.js'
 import {
   getResolvedRouteStatus,
   resolveRoute,
   serializeRouteState,
-} from './router/resolve'
-import { routeManifest } from './routeTree.gen'
+} from './router/resolve.js'
+import { routeManifest } from './routeTree.gen.js'
 
 function createStreamingResponse(bodyFactory: () => ReturnType<typeof renderToStream>, status = 200) {
   const encoder = new TextEncoder()

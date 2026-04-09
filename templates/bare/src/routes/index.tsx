@@ -1,5 +1,5 @@
 import { createFileRoute } from 'vorzelajs'
-import { CounterCard } from '~/components/counter-card'
+import { CounterCard } from '../components/counter-card'
 
 export const Route = createFileRoute('/')({
   component: HomePage,

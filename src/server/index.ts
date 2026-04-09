@@ -5,13 +5,13 @@ import { serveStatic } from '@hono/node-server/serve-static'
 import { Hono } from 'hono'
 import type { ViteDevServer } from 'vite'
 
-import type { AnalyticsDefinition } from '../analytics'
-import { DEFAULT_ANALYTICS_ENDPOINT, handleAnalyticsRequest } from '../analytics'
-import { formatParsedStack, parseErrorStack } from '../debug/error-stack'
-import { isRedirect } from '../runtime/navigation'
-import type { RobotsConfig } from '../seo'
-import { defaultRobotsConfig, renderRobotsTxt } from '../seo'
-import type { RenderAssets } from '../runtime'
+import type { AnalyticsDefinition } from '../analytics.js'
+import { DEFAULT_ANALYTICS_ENDPOINT, handleAnalyticsRequest } from '../analytics.js'
+import { formatParsedStack, parseErrorStack } from '../debug/error-stack.js'
+import { isRedirect } from '../runtime/navigation.js'
+import type { RobotsConfig } from '../seo.js'
+import { defaultRobotsConfig, renderRobotsTxt } from '../seo.js'
+import type { RenderAssets } from '../runtime/index.js'
 
 type Bindings = {
   incoming: IncomingMessage

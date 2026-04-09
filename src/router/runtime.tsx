@@ -2,14 +2,14 @@ import type { Accessor, Component, JSX } from 'solid-js'
 import { createContext, createEffect, createSignal, ErrorBoundary, onCleanup, sharedConfig, splitProps, useContext } from 'solid-js'
 import { hydrate } from 'solid-js/web'
 
-import { formatParsedStack, parseErrorStack } from '../debug/error-stack'
-import { syncHead } from './head'
-import { normalizeHref } from './path'
+import { formatParsedStack, parseErrorStack } from '../debug/error-stack.js'
+import { syncHead } from './head.js'
+import { normalizeHref } from './path.js'
 import {
   materializeBootstrapPayload,
   materializePayloadEnvelope,
-} from './resolve'
-import { parseSearchString, resolveMergedSearch, resolveNavigateHref } from './search'
+} from './resolve.js'
+import { parseSearchString, resolveMergedSearch, resolveNavigateHref } from './search.js'
 import type {
   BootstrapPayload,
   NavigateToOptions,
@@ -27,7 +27,7 @@ import type {
   RouteSearch,
   SetSearchFunction,
   SetSearchOptions,
-} from './types'
+} from './types.js'
 
 type NavigationOptions = {
   force?: boolean

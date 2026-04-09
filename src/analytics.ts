@@ -1,5 +1,5 @@
-import type { CookieOptions } from './cookie'
-import { cookiePolicies, createCookie, setCookie } from './cookie'
+import type { CookieOptions } from './cookie.js'
+import { cookiePolicies, createCookie, setCookie } from './cookie.js'
 
 type MaybePromise<T> = T | Promise<T>
 

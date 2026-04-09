@@ -1,4 +1,4 @@
-import type { HeadObject, LinkDescriptor, MetaDescriptor } from './types'
+import type { HeadObject, LinkDescriptor, MetaDescriptor } from './types.js'
 
 const MANAGED_HEAD_SELECTOR = '[data-vrz-head]'
 

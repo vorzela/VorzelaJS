@@ -1,6 +1,6 @@
 import { createRootRoute, Link, Outlet } from 'vorzelajs'
 
-export const Route = createRootRoute({
+export const Route = createRootRoute()({
   component: RootLayout,
   head: () => ({
     meta: [

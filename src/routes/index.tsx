@@ -1,6 +1,6 @@
 import { createFileRoute,Link } from '~/router'
 
-import { CounterCard } from '../components/counter-card'
+import { CounterCard } from '../components/counter-card.js'
 
 export const Route = createFileRoute('/')({
   head: () => ({

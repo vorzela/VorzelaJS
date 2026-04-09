@@ -1,11 +1,11 @@
-import { useSearch, useSetSearch } from './runtime'
+import { useSearch, useSetSearch } from './runtime.jsx'
 import type {
   FileRouteDefinition,
   FileRouteOptions,
   RootRouteDefinition,
   RootRouteOptions,
   RouteSearch,
-} from './types'
+} from './types.js'
 
 type InferValidatedSearch<Options> = Options extends {
   validateSearch: (...args: any[]) => infer Search

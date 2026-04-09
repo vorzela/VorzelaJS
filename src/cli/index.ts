@@ -3,17 +3,17 @@ const command = process.argv[2]
 async function main() {
   switch (command) {
     case 'dev': {
-      const { runDev } = await import('./dev')
+      const { runDev } = await import('./dev.js')
       await runDev()
       break
     }
     case 'build': {
-      const { runBuild } = await import('./build')
+      const { runBuild } = await import('./build.js')
       await runBuild()
       break
     }
     case 'serve': {
-      const { runServe } = await import('./serve')
+      const { runServe } = await import('./serve.js')
       await runServe()
       break
     }

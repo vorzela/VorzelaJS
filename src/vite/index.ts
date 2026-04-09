@@ -4,8 +4,8 @@ import url from 'node:url'
 
 import type { Plugin, UserConfig } from 'vite'
 
-import { vorzelaRoutesPlugin } from './routes-plugin'
-import { vorzelaServerOnlyPlugin } from './server-only'
+import { vorzelaRoutesPlugin } from './routes-plugin.js'
+import { vorzelaServerOnlyPlugin } from './server-only.js'
 
 const VIRTUAL_ROUTES = 'virtual:vorzela/routes'
 const VIRTUAL_HYDRATION = 'virtual:vorzela/hydration'
@@ -31,6 +31,13 @@ function resolveFrameworkDir() {
   // In built form: dist/vite/index.js -> dist/
   // In source form: src/vite/index.ts -> src/
   return path.resolve(path.dirname(thisFile), '..')
+}
+
+function resolveInternalEntryPath(frameworkDir: string, entryName: 'entry-client' | 'entry-server') {
+  const thisFile = url.fileURLToPath(import.meta.url)
+  const internalExtension = path.extname(thisFile) === '.js' ? '.jsx' : '.tsx'
+
+  return path.resolve(frameworkDir, `internal/${entryName}${internalExtension}`)
 }
 
 function tryRequirePlugin(name: string): Plugin | null {
@@ -94,11 +101,11 @@ function vorzelaVirtualModulesPlugin(): Plugin {
           return `import ${JSON.stringify(stylesPath)}`
         }
         case RESOLVED_VIRTUAL_ENTRY_CLIENT: {
-          const entryPath = path.resolve(frameworkDir, 'internal/entry-client.tsx')
+          const entryPath = resolveInternalEntryPath(frameworkDir, 'entry-client')
           return `export * from ${JSON.stringify(entryPath)}`
         }
         case RESOLVED_VIRTUAL_ENTRY_SERVER: {
-          const entryPath = path.resolve(frameworkDir, 'internal/entry-server.tsx')
+          const entryPath = resolveInternalEntryPath(frameworkDir, 'entry-server')
           return `export * from ${JSON.stringify(entryPath)}`
         }
         default:
@@ -200,5 +207,5 @@ export function resolveVorzelalBuildConfig(
   }
 }
 
-export { generateRoutes, vorzelaRoutesPlugin } from './routes-plugin'
-export { vorzelaServerOnlyPlugin } from './server-only'
+export { generateRoutes, vorzelaRoutesPlugin } from './routes-plugin.js'
+export { vorzelaServerOnlyPlugin } from './server-only.js'

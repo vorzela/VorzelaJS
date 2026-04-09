@@ -1,4 +1,4 @@
-export { createFileRoute, createRootRoute } from './create-route'
+export { createFileRoute, createRootRoute } from './create-route.js'
 export {
   isNotFound,
   isRedirect,
@@ -6,7 +6,7 @@ export {
   redirect,
   resolveRedirectTarget,
   withRedirectParam,
-} from './navigation'
+} from './navigation.js'
 export {
   createRouter,
   Link,
@@ -20,8 +20,8 @@ export {
   useRouter,
   useSearch,
   useSetSearch,
-} from './runtime'
-export { filterSearch } from './search'
+} from './runtime.js'
+export { filterSearch } from './search.js'
 export type {
   BootstrapPayload,
   GeneratedRouteHydrationRecord,
@@ -51,4 +51,4 @@ export type {
   SetSearchFunction,
   SetSearchOptions,
   SitemapEntry,
-} from './types'
+} from './types.js'

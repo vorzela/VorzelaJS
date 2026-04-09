@@ -1,13 +1,13 @@
 import { renderToStream, renderToString } from 'solid-js/web'
 
-import { Document } from './document'
-import type { RenderAssets, RoutePayloadEnvelope, SitemapEntry } from '../runtime'
-import { renderResolvedMatches } from '../runtime'
+import { Document } from './document.jsx'
+import type { RenderAssets, RoutePayloadEnvelope, SitemapEntry } from '../runtime/index.jsx'
+import { renderResolvedMatches } from '../runtime/index.jsx'
 import {
   getResolvedRouteStatus,
   resolveRoute,
   serializeRouteState,
-} from '../runtime/resolve'
+} from '../runtime/resolve.js'
 // @ts-expect-error resolved by vorzelajs vite plugin
 import { routeManifest } from 'virtual:vorzela/routes'
 

@@ -56,7 +56,7 @@ function generatePackageJson(config: ProjectConfig) {
       check: 'tsc --noEmit',
     },
     dependencies: {
-      vorzelajs: '^0.0.1',
+      vorzelajs: '^0.0.3',
       'solid-js': '^1.9',
     } as Record<string, string>,
     devDependencies: {

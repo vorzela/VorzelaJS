@@ -1,5 +1,5 @@
-import type { CookieOptions, VorzelaCookie } from './cookie'
-import { createCookie } from './cookie'
+import type { CookieOptions, VorzelaCookie } from './cookie.js'
+import { createCookie } from './cookie.js'
 
 export interface SessionData {
   [key: string]: unknown

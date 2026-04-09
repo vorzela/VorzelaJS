@@ -1,7 +1,7 @@
 import path from 'node:path'
 
-import { resolveVorzelaConfig, resolveVorzelalBuildConfig, vorzelaServerOnlyPlugin } from '../vite'
-import { generateRoutes } from '../vite/routes-plugin'
+import { resolveVorzelaConfig, resolveVorzelalBuildConfig, vorzelaServerOnlyPlugin } from '../vite/index.js'
+import { generateRoutes } from '../vite/routes-plugin.js'
 
 export async function runBuild() {
   const appRoot = process.cwd()

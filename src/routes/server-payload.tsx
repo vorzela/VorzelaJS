@@ -1,8 +1,8 @@
 import type { RouteComponentProps } from '~/router'
 import { createFileRoute } from '~/router'
 
-import type { ServerPayloadData } from './server-payload.server'
-import { getServerPayloadData } from './server-payload.server'
+import type { ServerPayloadData } from './server-payload.server.js'
+import { getServerPayloadData } from './server-payload.server.js'
 
 export const Route = createFileRoute('/server-payload')<ServerPayloadData>({
   head: ({ loaderData }) => ({

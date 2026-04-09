@@ -10,7 +10,7 @@ export type {
 	AnalyticsTouchPoint,
 	AnalyticsTrafficChannel,
 	AnalyticsUserAgentSummary,
-} from '../analytics'
+} from '../analytics.js'
 export {
 	classifyAnalyticsTraffic,
 	createAnalyticsClient,
@@ -18,11 +18,11 @@ export {
 	defineAnalytics,
 	extractAnalyticsTouchPoint,
 	handleAnalyticsRequest,
-} from '../analytics'
-export type { CookieHeaderTarget, CookieOptions, CookiePolicy, VorzelaCookie } from '../cookie'
-export { createCookie } from '../cookie'
-export { cookiePolicies, deleteCookie, setCookie } from '../cookie'
-export type { RobotsConfig, RobotsRule } from '../seo'
-export { defaultRobotsConfig, defineRobotsConfig, renderRobotsTxt } from '../seo'
-export type { SessionData, SessionStorage, VorzelaSession } from '../session'
-export { createCookieSessionStorage } from '../session'
+} from '../analytics.js'
+export type { CookieHeaderTarget, CookieOptions, CookiePolicy, VorzelaCookie } from '../cookie.js'
+export { createCookie } from '../cookie.js'
+export { cookiePolicies, deleteCookie, setCookie } from '../cookie.js'
+export type { RobotsConfig, RobotsRule } from '../seo.js'
+export { defaultRobotsConfig, defineRobotsConfig, renderRobotsTxt } from '../seo.js'
+export type { SessionData, SessionStorage, VorzelaSession } from '../session.js'
+export { createCookieSessionStorage } from '../session.js'
