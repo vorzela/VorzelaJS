@@ -4,6 +4,7 @@ import path from 'node:path'
 import type { Plugin } from 'vite'
 
 const ROUTES_DIR = path.join('src', 'routes')
+const SOURCE_DIR = 'src'
 const OUTPUT_FILE = path.join('src', 'routeTree.gen.ts')
 const OUTPUT_HYDRATION_FILE = path.join('src', 'routeHydration.gen.ts')
 const ROUTE_FILE_PATTERN = /\.(ts|tsx)$/u
@@ -230,8 +231,11 @@ function detectRouteHydration(source: string) {
     : 'static'
 }
 
-function isLocalModuleSpecifier(specifier: string) {
-  return specifier.startsWith('./') || specifier.startsWith('../')
+function isHydrationTrackedSpecifier(specifier: string) {
+  return specifier.startsWith('./')
+    || specifier.startsWith('../')
+    || specifier === '~'
+    || specifier.startsWith('~/')
 }
 
 function extractLocalImportSpecifiers(source: string) {
@@ -243,7 +247,7 @@ function extractLocalImportSpecifiers(source: string) {
     for (const match of source.matchAll(pattern)) {
       const specifier = match[1]
 
-      if (specifier && isLocalModuleSpecifier(specifier) && !isServerOnlyModuleSpecifier(specifier)) {
+      if (specifier && isHydrationTrackedSpecifier(specifier) && !isServerOnlyModuleSpecifier(specifier)) {
         specifiers.add(specifier)
       }
     }
@@ -261,8 +265,12 @@ async function pathExists(filePath: string) {
   }
 }
 
-async function resolveLocalModulePath(specifier: string, importerPath: string) {
-  const basePath = path.resolve(path.dirname(importerPath), specifier)
+async function resolveLocalModulePath(specifier: string, importerPath: string, projectRoot: string) {
+  const basePath = specifier === '~'
+    ? path.resolve(projectRoot, SOURCE_DIR)
+    : specifier.startsWith('~/')
+      ? path.resolve(projectRoot, SOURCE_DIR, specifier.slice(2))
+      : path.resolve(path.dirname(importerPath), specifier)
   const candidates = path.extname(basePath)
     ? [basePath]
     : [
@@ -282,6 +290,7 @@ async function resolveLocalModulePath(specifier: string, importerPath: string) {
 async function detectRouteHydrationFromFile(
   filePath: string,
   cache: Map<string, Promise<'client' | 'static'>>,
+  projectRoot: string,
 ): Promise<'client' | 'static'> {
   const resolvedPath = path.resolve(filePath)
   const cached = cache.get(resolvedPath)
@@ -298,13 +307,13 @@ async function detectRouteHydrationFromFile(
     }
 
     for (const specifier of extractLocalImportSpecifiers(source)) {
-      const dependencyPath = await resolveLocalModulePath(specifier, resolvedPath)
+      const dependencyPath = await resolveLocalModulePath(specifier, resolvedPath, projectRoot)
 
       if (!dependencyPath) {
         continue
       }
 
-      if (await detectRouteHydrationFromFile(dependencyPath, cache) === 'client') {
+      if (await detectRouteHydrationFromFile(dependencyPath, cache, projectRoot) === 'client') {
         return 'client'
       }
     }
@@ -317,7 +326,7 @@ async function detectRouteHydrationFromFile(
   return pending
 }
 
-async function createGeneratedHydrationFile(routes: RouteInfo[]) {
+async function createGeneratedHydrationFile(routes: RouteInfo[], projectRoot: string) {
   const sortedRoutes = [...routes].sort((left, right) => {
     if (left.id === '__root__') return -1
     if (right.id === '__root__') return 1
@@ -326,7 +335,7 @@ async function createGeneratedHydrationFile(routes: RouteInfo[]) {
   const hydrationCache = new Map<string, Promise<'client' | 'static'>>()
 
   const hydrationEntries = await Promise.all(sortedRoutes.map(async (route) => {
-    const detected = await detectRouteHydrationFromFile(route.filePath, hydrationCache)
+    const detected = await detectRouteHydrationFromFile(route.filePath, hydrationCache, projectRoot)
 
     return `  '${route.id}': { detected: '${detected}' }`
   }))
@@ -377,7 +386,7 @@ export async function generateRoutes(projectRoot = process.cwd()) {
 
   await Promise.all([
     writeIfChanged(outputPath, createGeneratedFile(routesWithParents)),
-    writeIfChanged(hydrationOutputPath, await createGeneratedHydrationFile(routesWithParents)),
+    writeIfChanged(hydrationOutputPath, await createGeneratedHydrationFile(routesWithParents, projectRoot)),
   ])
 }
 

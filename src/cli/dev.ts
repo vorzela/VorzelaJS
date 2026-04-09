@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import { createServer } from 'node:http'
 import { createServer as createNetServer } from 'node:net'
 import path from 'node:path'
+import url from 'node:url'
 
 import { getRequestListener } from '@hono/node-server'
 import type { ViteDevServer } from 'vite'
@@ -71,6 +72,12 @@ export async function runDev() {
 
   const baseConfig = await resolveVorzelaConfig(appRoot)
 
+  // Resolve the framework's internal entry-client file
+  const devThisFile = url.fileURLToPath(import.meta.url)
+  const frameworkDir = path.resolve(path.dirname(devThisFile), '..')
+  const internalExt = path.extname(devThisFile) === '.js' ? '.jsx' : '.tsx'
+  const entryClientPath = path.resolve(frameworkDir, `internal/entry-client${internalExt}`)
+
   const { createServer: createViteServer } = await import('vite')
   const resolvedHmrPort = await findAvailablePort(hmrPort)
 
@@ -82,12 +89,15 @@ export async function runDev() {
         port: resolvedHmrPort,
       },
       middlewareMode: true,
+      fs: {
+        allow: [appRoot, frameworkDir],
+      },
     },
   })
 
   const devAssets = {
     css: ['/src/styles.css'],
-    js: ['/src/entry-client.tsx'],
+    js: [`/@fs/${entryClientPath}`],
   }
 
   const loadEntry: CreateAppOptions['loadEntry'] = async () => {
