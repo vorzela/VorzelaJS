@@ -157,6 +157,18 @@ The current frontend build also does a few framework-level things worth knowing:
 
 This is why route navigations do not depend on late route-level CSS chunk discovery.
 
+## PWA File Generation
+
+When PWA is enabled via `vorzelaPlugin({ pwa: true })` or `resolveVorzelaConfig(root, { pwa: true })`, the client build also emits:
+
+- `dist/client/sw.js` — Service worker with a precache list of all hashed assets
+- `dist/client/manifest.webmanifest` — Web app manifest JSON
+- `dist/client/offline.html` — Styled offline fallback page
+
+These files are generated in the Vite `generateBundle` hook from the `vorzelajs-pwa` plugin, using the complete bundle to build the asset precache list.
+
+See [pwa.md](pwa.md) for full configuration and caching strategy details.
+
 ## Practical Guidance
 
 If a route unexpectedly stays static:

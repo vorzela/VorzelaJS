@@ -44,6 +44,7 @@ This assessment is based on the current source code in:
 | Partial hydration / islands | Yes, limited | Automatic route-branch islands; no arbitrary nested component extraction |
 | Generated `robots.txt` and `sitemap.xml` | Yes, limited | Built-in runtime serves both; default sitemap skips dynamic `$` routes |
 | Route-level error boundaries | Yes, limited | Automatic route-scoped fallbacks exist; typed status helpers do not |
+| PWA support | Yes, opt-in | Service worker, manifest, offline fallback via `pwa: true` in Vite config |
 | Structured 400/401/403/422/500 page framework | No | Only `404` and generic `500` handling exist |
 
 ## `_` Files Research Result

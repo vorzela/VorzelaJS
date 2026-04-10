@@ -15,6 +15,7 @@ You'll be prompted for:
 
 - **Template** — `modern` (multi-page with nav) or `bare` (single landing page)
 - **Styling** — `tailwindcss`, `css-modules`, or `css`
+- **PWA** — Enable progressive web app support
 
 ## Manual Setup
 
@@ -81,8 +82,9 @@ You own `src/`. The framework handles Vite config, server, SSR entry, and docume
 - **Cookie & session helpers** — `createCookie()`, `createCookieSessionStorage()` via `vorzelajs/server`
 - **Analytics** — First-party analytics with `defineAnalytics()` and `createAnalyticsClient()`
 - **SEO** — Robots.txt, sitemap.xml, and structured data built in
+- **PWA** — Opt-in service worker, web app manifest, and offline fallback with `pwa: true`
 - **Security headers** — CSP with nonces, HSTS, X-Frame-Options, and more out of the box
-- **Zero config** — No `vite.config.ts` or `server.ts` to maintain
+- **Zero config** — No `vite.config.ts` or `server.ts` required
 
 ## Routes
 
@@ -168,6 +170,18 @@ Bring your own fonts. The default font stack is system fonts.
 | `vorzelajs dev` | Start dev server with HMR |
 | `vorzelajs build` | Build client and server for production |
 | `vorzelajs serve` | Serve the production build |
+
+## PWA
+
+Enable PWA by adding a `vite.config.ts`:
+
+```ts
+import { resolveVorzelaConfig } from 'vorzelajs/vite'
+
+export default resolveVorzelaConfig(import.meta.dirname, { pwa: true })
+```
+
+This generates a service worker (cache-first assets, network-first pages), web app manifest, and offline fallback page at build time. See [docs/pwa.md](docs/pwa.md) for full configuration options and cache helpers.
 
 ## Vite Escape Hatch
 
