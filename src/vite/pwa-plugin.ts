@@ -2,7 +2,7 @@ import type { Plugin } from 'vite'
 
 import { generateOfflinePage } from '../pwa/offline-template.js'
 import { generateServiceWorker } from '../pwa/sw-template.js'
-import type { ResolvedPwaConfig } from './index.js'
+import type { ResolvedPwaConfig } from './pwa-types.js'
 
 let _activePwaConfig: ResolvedPwaConfig | null = null
 

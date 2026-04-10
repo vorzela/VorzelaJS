@@ -6,7 +6,6 @@ import type { Plugin, UserConfig } from 'vite'
 
 import { vorzelaPwaPlugin } from './pwa-plugin.js'
 import { vorzelaRoutesPlugin } from './routes-plugin.js'
-import { vorzelaServerOnlyPlugin } from './server-only.js'
 
 const VIRTUAL_ROUTES = 'virtual:vorzela/routes'
 const VIRTUAL_HYDRATION = 'virtual:vorzela/hydration'
@@ -20,29 +19,8 @@ const RESOLVED_VIRTUAL_STYLES = `\0${VIRTUAL_STYLES}`
 const RESOLVED_VIRTUAL_ENTRY_CLIENT = `\0${VIRTUAL_ENTRY_CLIENT}`
 const RESOLVED_VIRTUAL_ENTRY_SERVER = `\0${VIRTUAL_ENTRY_SERVER}`
 
-export interface PwaIconDescriptor {
-  sizes: string
-  src: string
-  type?: string
-}
-
-export interface VorzelaPwaOptions {
-  backgroundColor?: string
-  display?: 'fullscreen' | 'standalone' | 'minimal-ui' | 'browser'
-  icons?: PwaIconDescriptor[]
-  name?: string
-  shortName?: string
-  themeColor?: string
-}
-
-export interface ResolvedPwaConfig {
-  backgroundColor: string
-  display: string
-  icons: PwaIconDescriptor[]
-  name: string
-  shortName: string
-  themeColor: string
-}
+export type { PwaIconDescriptor, ResolvedPwaConfig, VorzelaPwaOptions } from './pwa-types.js'
+import type { PwaIconDescriptor, ResolvedPwaConfig, VorzelaPwaOptions } from './pwa-types.js'
 
 export interface VorzelaPluginOptions {
   /** Enable PWA support. Pass `true` for defaults or an options object. */
