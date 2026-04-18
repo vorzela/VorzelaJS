@@ -14,23 +14,23 @@ function HomePage() {
       <div class="hero-content">
         <h1 class="hero-title">VorzelaJs</h1>
         <p class="hero-description">
-          A batteries-included SolidJS framework with file-based routing, streamed SSR, and server-only boundaries.
+          Production-ready SolidJS framework with file-based routing, streamed SSR, and navigation resilience.
         </p>
 
         <CounterCard />
 
         <div class="features">
           <div class="feature-card">
-            <h3>File-Based Routing</h3>
-            <p>Drop a file in <code>src/routes/</code> and it becomes a route. Automatic code splitting included.</p>
+            <h3>🚀 Production-Ready</h3>
+            <p>Navigation resilience, persistent state, and security headers built-in. Ready for real-world apps.</p>
           </div>
           <div class="feature-card">
-            <h3>Streamed SSR</h3>
-            <p>Server-rendered HTML streams to the browser with selective hydration per route.</p>
+            <h3>⚡ Fast by Default</h3>
+            <p>Prefetch on hover, View Transitions API, and optimized bundles for instant navigation.</p>
           </div>
           <div class="feature-card">
-            <h3>Server Boundaries</h3>
-            <p>Use <code>.server</code> files and route loaders to keep secrets on the server.</p>
+            <h3>🔒 Secure</h3>
+            <p>Configurable CSP, nonce-based scripts, XSS protection, and comprehensive security headers.</p>
           </div>
         </div>
 
@@ -38,8 +38,8 @@ function HomePage() {
           <a href="https://github.com/vorzela/VorzelaJS" target="_blank" rel="noopener noreferrer" class="link">
             GitHub
           </a>
-          <a href="https://github.com/vorzela/VorzelaJS#readme" target="_blank" rel="noopener noreferrer" class="link">
-            Documentation
+          <a href="https://github.com/vorzela/VorzelaJS/blob/main/docs/production-features.md" target="_blank" rel="noopener noreferrer" class="link">
+            Production Features
           </a>
           <a href="https://www.npmjs.com/package/vorzelajs" target="_blank" rel="noopener noreferrer" class="link">
             npm

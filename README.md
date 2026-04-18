@@ -1,6 +1,8 @@
 # VorzelaJs
 
-Batteries-included SolidJS framework with file-based routing, streamed SSR, server-only boundaries, and zero config.
+**Production-ready** SolidJS framework with file-based routing, streamed SSR, server-only boundaries, and zero config.
+
+Includes navigation resilience, persistent client state, and configurable security for real-world applications.
 
 ## Create a New App
 
@@ -74,6 +76,7 @@ You own `src/`. The framework handles Vite config, server, SSR entry, and docume
 
 ## Features
 
+### Core Capabilities
 - **File-based routing** — Drop a file in `src/routes/` and it becomes a route with automatic code splitting
 - **Streamed SSR** — Server-rendered HTML streams to the browser with selective hydration per route branch
 - **Server-only boundaries** — `.server.ts` files and route `loader`/`beforeLoad` are stripped from the client bundle
@@ -83,8 +86,18 @@ You own `src/`. The framework handles Vite config, server, SSR entry, and docume
 - **Analytics** — First-party analytics with `defineAnalytics()` and `createAnalyticsClient()`
 - **SEO** — Robots.txt, sitemap.xml, and structured data built in
 - **PWA** — Opt-in service worker, web app manifest, and offline fallback with `pwa: true`
-- **Security headers** — CSP with nonces, HSTS, X-Frame-Options, and more out of the box
 - **Zero config** — No `vite.config.ts` or `server.ts` required
+
+### Production-Ready Features
+- **Navigation resilience** — Automatic cancellation and latest-wins semantics prevent race conditions
+- **Persistent client state** — Parent layout islands survive child navigation, preserving WebSocket connections and component state
+- **Configurable CSP** — Per-directive or per-request Content Security Policy configuration for WebSockets and external APIs
+- **Prefetch on hover** — Automatic link prefetching for sub-100ms navigation
+- **View Transitions** — Smooth animations between routes via View Transitions API
+- **Redirect protection** — Maximum depth enforcement prevents infinite redirect loops
+- **Security headers** — CSP with nonces, HSTS, X-Frame-Options, and comprehensive protection out of the box
+
+See [docs/production-features.md](docs/production-features.md) for details.
 
 ## Routes
 

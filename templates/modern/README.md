@@ -1,6 +1,6 @@
 # My App
 
-Built with [VorzelaJs](https://github.com/vorzela/VorzelaJS).
+Built with [VorzelaJs](https://github.com/vorzela/VorzelaJS) - a production-ready SolidJS framework.
 
 ## Getting Started
 
@@ -22,7 +22,16 @@ src/
 └── styles.css      # Global styles
 ```
 
+## What You Get
+
+- **Navigation Resilience** - Automatic cancellation and race condition prevention
+- **Persistent State** - Parent layouts preserve state across child navigations  
+- **Security Headers** - CSP with nonces, XSS protection, CORS protection
+- **Performance** - Prefetch on hover, View Transitions API, optimized bundles
+- **Zero Config** - No vite.config or server setup required
+
 ## Learn More
 
 - [VorzelaJs Documentation](https://github.com/vorzela/VorzelaJS#readme)
+- [Production Features Guide](https://github.com/vorzela/VorzelaJS/blob/main/docs/production-features.md)
 - [SolidJS](https://www.solidjs.com/)

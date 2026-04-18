@@ -39,6 +39,15 @@ interface ServerEntryModule {
 
 export interface CreateAppOptions {
   assets: RenderAssets
+  csp?: {
+    connectSrc?: string[]
+    scriptSrc?: string[]
+    styleSrc?: string[]
+  } | ((request: Request) => {
+    connectSrc?: string[]
+    scriptSrc?: string[]
+    styleSrc?: string[]
+  })
   isProd: boolean
   loadEntry: () => Promise<ServerEntryModule>
   staticRoot?: string
@@ -178,9 +187,25 @@ export function createVorzelaApp(options: CreateAppOptions) {
     c.res.headers.set('Cross-Origin-Resource-Policy', 'same-origin')
     c.res.headers.set('Permissions-Policy', 'accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()')
     c.res.headers.set('X-Robots-Tag', 'index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1')
-    c.res.headers.set('Content-Security-Policy', isProd
-      ? `default-src 'self'; script-src 'self' 'nonce-${cspNonce}'; style-src 'self'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'`
-      : "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' ws: wss:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'")
+
+    // Resolve per-request or static CSP configuration
+    const cspConfig = typeof options.csp === 'function'
+      ? options.csp(c.req.raw)
+      : options.csp
+
+    const connectSrc = cspConfig?.connectSrc?.length
+      ? `'self' ${cspConfig.connectSrc.join(' ')}`
+      : "'self'"
+    const scriptSrc = cspConfig?.scriptSrc?.length
+      ? `'self' ${isProd ? `'nonce-${cspNonce}'` : "'unsafe-inline' 'unsafe-eval'"} ${cspConfig.scriptSrc.join(' ')}`
+      : isProd ? `'self' 'nonce-${cspNonce}'` : "'self' 'unsafe-inline' 'unsafe-eval'"
+    const styleSrc = cspConfig?.styleSrc?.length
+      ? `'self' ${isProd ? '' : "'unsafe-inline'"} ${cspConfig.styleSrc.join(' ')}`
+      : isProd ? "'self'" : "'self' 'unsafe-inline'"
+
+    c.res.headers.set('Content-Security-Policy',
+      `default-src 'self'; script-src ${scriptSrc}; style-src ${styleSrc}; img-src 'self' data:; font-src 'self' data:; connect-src ${connectSrc}${isProd ? '' : ' ws: wss:'}; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'`)
+
     if (isProd) {
       c.res.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload')
     }

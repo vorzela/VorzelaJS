@@ -14,10 +14,17 @@ function HomePage() {
       <div class="hero-content">
         <h1 class="hero-title">VorzelaJs</h1>
         <p class="hero-description">
-          A batteries-included SolidJS framework with file-based routing, streamed SSR, and server-only boundaries.
+          Production-ready SolidJS framework with file-based routing, streamed SSR, and navigation resilience.
         </p>
 
         <CounterCard />
+
+        <div class="features-list">
+          <div class="feature-item">✅ Navigation race condition prevention</div>
+          <div class="feature-item">✅ Persistent client state across navigations</div>
+          <div class="feature-item">✅ Security headers and CSP configuration</div>
+          <div class="feature-item">✅ Prefetch on hover for instant navigation</div>
+        </div>
 
         <nav class="hero-links">
           <a href="https://github.com/vorzela/VorzelaJS" target="_blank" rel="noopener noreferrer" class="link">

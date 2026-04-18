@@ -42,9 +42,20 @@ type PrefetchCacheEntry = {
   promise: Promise<NavigationResult>
 }
 
+type InFlightNavigation = {
+  abortController: AbortController
+  href: string
+  token: number
+}
+
 const PREFETCH_CACHE_MAX_ENTRIES = 24
 const PREFETCH_CACHE_TTL_MS = 30_000
+const REDIRECT_CHAIN_MAX_DEPTH = 10
 const isDev = import.meta.env.DEV
+
+const supportsViewTransitions = typeof window !== 'undefined'
+  && 'startViewTransition' in document
+  && typeof (document as any).startViewTransition === 'function'
 
 export interface VorzelaRouter {
   context: Record<string, unknown>
@@ -123,21 +134,33 @@ function commitState(
   setState: (value: ResolvedRouteState) => void,
   options: NavigationOptions = {},
 ) {
-  setState(nextState)
-  syncHead(nextState.head)
+  const doCommit = () => {
+    setState(nextState)
+    syncHead(nextState.head)
 
-  if (typeof window === 'undefined') return
+    if (typeof window === 'undefined') return
 
-  const href = `${nextState.pathname}${nextState.search}`
+    const href = `${nextState.pathname}${nextState.search}`
 
-  if (options.replace) {
-    window.history.replaceState({}, '', href)
-  } else if (!options.force) {
-    window.history.pushState({}, '', href)
+    if (options.replace) {
+      window.history.replaceState({}, '', href)
+    } else if (!options.force) {
+      window.history.pushState({}, '', href)
+    }
+
+    if (options.scroll !== false) {
+      window.scrollTo({ left: 0, top: 0 })
+    }
   }
 
-  if (options.scroll !== false) {
-    window.scrollTo({ left: 0, top: 0 })
+  // Use View Transitions API if available and not disabled
+  if (supportsViewTransitions && typeof window !== 'undefined' && !options.force) {
+    const doc = document as any
+    doc.startViewTransition(() => {
+      doCommit()
+    })
+  } else {
+    doCommit()
   }
 }
 
@@ -397,8 +420,13 @@ export function createRouter(
   let initialized = false
   let afterLoadFrame: number | undefined
   let afterLoadToken = 0
+  let navigationToken = 0
+  let redirectDepth = 0
+  let inFlightNavigation: InFlightNavigation | undefined
   const islandDisposers: Array<() => void> = []
+  const mountedIslands = new Map<string, () => void>()
   const prefetchCache = new Map<string, PrefetchCacheEntry>()
+  const prefetchObservers = new Map<string, IntersectionObserver>()
 
   const resolveTargetHref = (to: string | NavigateToOptions) => {
     const currentState = state()
@@ -433,6 +461,15 @@ export function createRouter(
     }
   }
 
+  const disposeStaleIslands = (currentMatchIds: Set<string>) => {
+    for (const [matchId, dispose] of mountedIslands.entries()) {
+      if (!currentMatchIds.has(matchId)) {
+        dispose()
+        mountedIslands.delete(matchId)
+      }
+    }
+  }
+
   const scheduleAfterLoad = (nextState: ResolvedRouteState) => {
     if (typeof window === 'undefined') {
       return
@@ -455,7 +492,7 @@ export function createRouter(
     })
   }
 
-  const hydrateIslands = (nextState: ResolvedRouteState) => {
+  const hydrateIslands = (nextState: ResolvedRouteState, previousMatchIds?: Set<string>) => {
     if (typeof window === 'undefined') {
       return
     }
@@ -470,11 +507,22 @@ export function createRouter(
 
     const hydrationRoots = getHydrationRoots(nextState)
     const isPayloadNavigation = nextState.renderSource === 'payload'
+    const currentMatchIds = new Set(nextState.matches.map((m) => m.id))
+
+    // Dispose only islands that are no longer in the tree
+    if (previousMatchIds) {
+      disposeStaleIslands(currentMatchIds)
+    }
 
     for (const root of hydrationRoots) {
       const mount = mountPoints.find((candidate) => candidate.getAttribute(ISLAND_ROOT_ATTRIBUTE) === root.id)
 
       if (!mount) {
+        continue
+      }
+
+      // Skip re-hydrating islands that are already mounted and stable
+      if (previousMatchIds?.has(root.id) && mountedIslands.has(root.id)) {
         continue
       }
 
@@ -489,13 +537,15 @@ export function createRouter(
 
       if (isPayloadNavigation) {
         mount.textContent = ''
-        islandDisposers.push(render(() => {
+        const dispose = render(() => {
           return renderResolvedMatches(subtreeState, { retry })
-        }, mount))
+        }, mount)
+        islandDisposers.push(dispose)
+        mountedIslands.set(root.id, dispose)
       } else {
         const hctx = readIslandHydrationContext(mount)
 
-        islandDisposers.push(hydrate(() => {
+        const dispose = hydrate(() => {
           if (hctx && sharedConfig.context) {
             sharedConfig.context.count = hctx.count
           }
@@ -503,7 +553,9 @@ export function createRouter(
           return renderResolvedMatches(subtreeState, { retry })
         }, mount, {
           renderId: hctx?.id,
-        }))
+        })
+        islandDisposers.push(dispose)
+        mountedIslands.set(root.id, dispose)
       }
     }
 
@@ -518,14 +570,24 @@ export function createRouter(
     nextState: ResolvedRouteState,
     navigationOptions: NavigationOptions = {},
   ) => {
-    disposeHydrationRoots()
+    const previousState = state()
+    const previousMatchIds = new Set(previousState.matches.map((m) => m.id))
 
+    // Only replace HTML for changed route segments
     if (typeof window !== 'undefined' && nextState.payloadHtml) {
-      replaceAppHtml(nextState.payloadHtml)
+      const currentMatchIds = new Set(nextState.matches.map((m) => m.id))
+      const hasMatchChanges = nextState.matches.some((m) => !previousMatchIds.has(m.id))
+        || previousState.matches.some((m) => !currentMatchIds.has(m.id))
+
+      if (hasMatchChanges) {
+        replaceAppHtml(nextState.payloadHtml)
+        // Clear disposers only when HTML changes
+        disposeHydrationRoots()
+      }
     }
 
     commitState(nextState, setState, navigationOptions)
-    hydrateIslands(nextState)
+    hydrateIslands(nextState, previousMatchIds)
     scheduleAfterLoad(nextState)
 
     if (nextState.payloadHtml) {
@@ -543,13 +605,14 @@ export function createRouter(
     })
   }
 
-  const fetchNavigationState = async (href: string) => {
+  const fetchNavigationState = async (href: string, signal?: AbortSignal) => {
     const response = await fetch(`/__vorzela/payload?path=${encodeURIComponent(href)}`, {
       credentials: 'same-origin',
       headers: {
         'X-Vorzela-Navigation': 'payload',
       },
       redirect: 'manual',
+      signal,
     })
 
     let payload: unknown
@@ -576,22 +639,29 @@ export function createRouter(
     return materializePayloadEnvelope(payload as RoutePayloadEnvelope)
   }
 
-  const requestNavigationState = (href: string, reason: 'navigate' | 'prefetch') => {
+  const requestNavigationState = (href: string, reason: 'navigate' | 'prefetch', signal?: AbortSignal) => {
     const cached = getCachedNavigationState(href)
 
-    if (cached) {
+    if (cached && reason === 'navigate') {
       logDevRouterEvent(`${reason}:cache-hit`, { href })
       return cached
     }
 
     logDevRouterEvent(`${reason}:network`, { href })
 
-    const pending = fetchNavigationState(href).catch((error) => {
+    const pending = fetchNavigationState(href, signal).catch((error) => {
+      if (error.name === 'AbortError') {
+        throw error
+      }
       prefetchCache.delete(href)
       throw error
     })
 
-    return storeNavigationState(href, pending)
+    if (reason === 'prefetch') {
+      return storeNavigationState(href, pending)
+    }
+
+    return pending
   }
 
   const prefetch = async (to: string | NavigateToOptions) => {
@@ -622,16 +692,46 @@ export function createRouter(
       return
     }
 
+    // Cancel any in-flight navigation
+    if (inFlightNavigation) {
+      inFlightNavigation.abortController.abort()
+      inFlightNavigation = undefined
+    }
+
+    // Create new navigation with token for latest-wins semantics
+    const token = ++navigationToken
+    const abortController = new AbortController()
+    inFlightNavigation = { abortController, href, token }
+
     let nextState: NavigationResult
 
     try {
-      nextState = await requestNavigationState(href, 'navigate')
+      nextState = await requestNavigationState(href, 'navigate', abortController.signal)
     } catch (error) {
+      // Ignore aborted navigations
+      if (error instanceof Error && error.name === 'AbortError') {
+        return
+      }
       logDevRouterError('navigate', error, { href })
       throw error
     }
 
+    // Verify this navigation is still the latest
+    if (token !== navigationToken) {
+      logDevRouterEvent('navigate:stale', { href, token, currentToken: navigationToken })
+      return
+    }
+
+    inFlightNavigation = undefined
+
     if (isRouteRedirectData(nextState)) {
+      redirectDepth++
+      
+      if (redirectDepth > REDIRECT_CHAIN_MAX_DEPTH) {
+        redirectDepth = 0
+        throw new Error(`Redirect chain exceeded maximum depth of ${REDIRECT_CHAIN_MAX_DEPTH}. Last redirect to: ${nextState.to}`)
+      }
+      
       await navigate(nextState.to, {
         force: true,
         replace: nextState.replace,
@@ -639,6 +739,9 @@ export function createRouter(
       })
       return
     }
+
+    // Reset redirect depth on successful navigation
+    redirectDepth = 0
 
     mountState(nextState, {
       ...options,
@@ -680,6 +783,28 @@ export function createRouter(
           scroll: false,
         })
       })
+      // Prefetch on hover
+      document.addEventListener('mouseover', (event) => {
+        const target = event.target
+        if (!(target instanceof Element)) return
+
+        const anchor = target.closest('a[href]')
+        if (!(anchor instanceof HTMLAnchorElement)) return
+        if (anchor.hasAttribute('data-vrz-no-prefetch')) return
+        if (anchor.target === '_blank' || anchor.hasAttribute('download')) return
+
+        const nextUrl = new URL(anchor.href, window.location.origin)
+        if (nextUrl.origin !== window.location.origin) return
+
+        const href = `${nextUrl.pathname}${nextUrl.search}`
+        if (href === `${window.location.pathname}${window.location.search}`) return
+
+        // Debounce: only prefetch if not already cached or in-flight
+        if (!prefetchCache.has(href) && !inFlightNavigation) {
+          void prefetch(href)
+        }
+      })
+
       document.addEventListener('click', (event) => {
         if (
           event.defaultPrevented

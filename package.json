@@ -1,8 +1,8 @@
 {
   "name": "vorzelajs",
-  "version": "0.0.9",
+  "version": "0.1.0",
   "type": "module",
-  "description": "Batteries-included SolidJS framework with file-based routing, streamed SSR, and server-only boundaries",
+  "description": "Production-ready SolidJS framework with file-based routing, streamed SSR, navigation resilience, and security headers",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -51,7 +51,7 @@
   "dependencies": {
     "@hono/node-server": "^1.19.4",
     "error-stack-parser": "^2.1.4",
-    "hono": "^4.10.1",
+    "hono": "^4.12.14",
     "tsx": "^4.21.0",
     "vite-plugin-solid": "^2.11.12"
   },
@@ -75,6 +75,6 @@
     "solid-js": "^1.9.11",
     "typescript": "^6.0.2",
     "typescript-eslint": "^8.58.1",
-    "vite": "^8.0.5"
+    "vite": "^8.0.8"
   }
 }
